@@ -1,0 +1,3605 @@
+<!doctype html>
+<html class="no-js" lang="en">
+<head>
+
+<script>
+/* >> TriplePixel :: start*/
+~function(W,H,A,L,E){try{A.setItem(H,1+(0|A.getItem(H)||0)),W.includes("⇈")&&A.setItem(H+"Stg",1+(0|A.getItem(H+"Stg")||0))}catch(e){}function O(T,R){void 0===R&&(R=!1),H=new XMLHttpRequest,H.open("GET","//triplewhale-pixel.web.app/triplepx.txt?"+~(Date.now()/9e7),!0),H.send(null),H.onreadystatechange=function(){4===H.readyState&&200===H.status?setTimeout(function(){return eval(H.responseText)},50):(299<H.status||H.status<200)&&T&&!R&&(R=!0,O(T-1))}}A=window,A[H]||(L=function(){return"tp.."+Date.now().toString(36)+Math.random().toString(36)},E=A[H]=function(t,e,n){return W=L(),(E._q=E._q||[]).push([W,e,n]),W},E.ch=W,O(5))}("","TriplePixel",localStorage);
+/* << TriplePixel :: end*/
+</script>
+
+<script src="https://cdn.skio.com/scripts/shopify/head/shopify.ba9807f79b5cdb6483d5.js"></script>
+<script>
+  function patchRequests() {
+    const XHRSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function (...args) {
+      args[0] = reserialize(args[0]);
+      return XHRSend.apply(this, args);
+    };
+  
+    const windowFetchCopy = window.fetch;
+    window.fetch = function (...args) {
+      if (args[1] && args[1].body) {
+        args[1].body = reserialize(args[1].body);
+      }
+      return windowFetchCopy(...args);
+    };
+  }
+  
+   function XMLHttpRequestPromise(obj) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open(obj.method || 'GET', obj.url);
+      if (obj.headers) {
+        Object.keys(obj.headers).forEach((key) => {
+          xhr.setRequestHeader(key, obj.headers[key]);
+        });
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.response);
+        } else {
+          reject(xhr.statusText);
+        }
+      };
+      xhr.onerror = () => reject(xhr.statusText);
+      xhr.send(obj.body);
+    });
+  }
+
+  function reserializeJSON(json) {
+    try {
+      const body = JSON.parse(json);
+      const id = body.id;
+      const lineItems = (body.checkout || {}).line_items;
+      if (id) {
+     const planId = getPlanId(document);
+      if (planId) {
+      body['selling_plan'] = planId;
+      }
+      } else if (lineItems) {
+        body.checkout.line_items = lineItems.map((item) => {
+          const { variant_id: id } = item;
+          if (!id) {
+            return item;
+          }
+      
+      const planId = getPlanId(document);
+          if (planId) {
+            item.properties['selling_plan'] = planId;
+          }
+  
+          return item;
+        });
+      }
+      const reserializedBody = JSON.stringify(body);
+      return reserializedBody;
+    } catch (e) {
+      return json;
+    }
+  }
+  
+  function reserializeFormData(formData) {
+    try {
+      if (!formData.get('selling_plan')) {
+        const planId = getPlanId(document);
+        if (planId) {
+          formData.append('selling_plan', planId);
+        }
+      }
+    } catch(e) {}
+    return formData;
+  }
+  
+  function reserializeQueryParam(body) {
+    try {
+      const reserializedBody = body.split('&').map((field) => {
+        return field;
+      });
+      if (!body.includes('selling_plan') && planId) {
+        const planId = getPlanId(document);
+        if (planId) {
+          reserializedBody.push('selling_plan=' + planId);
+          }
+        }
+      return reserializedBody.join('&');
+    } catch (e) {
+      return body;
+    }
+  }
+  
+  function reserialize(body) {
+    try {
+      if (!body) {
+        return body;
+      }
+      if (typeof body === 'string') {
+        let isJson = false;
+        try {
+          JSON.parse(body);
+          isJson = true;
+        } catch (e) {}
+        return isJson ? reserializeJSON(body) : reserializeQueryParam(body);
+      } else if (typeof body === 'object' && body.entries && body.entries()) {
+        return reserializeFormData(body);
+      }
+    } catch (e) {}
+    return body;
+  }  
+
+  function extractContent(s) {
+    var span = document.createElement('span');
+    span.innerHTML = s;
+    return span.textContent || span.innerText;
+  };
+  function updatePrice(planSelector) {
+    var product = JSON.parse(planSelector.dataset.product);
+    var planId = getPlanId(planSelector);
+    var variantId = getVariantId(planSelector);
+    if (!variantId) {
+      return;
+    }
+    var variant = product.variants_by_id[variantId];
+    planId = planId ? parseInt(planId) : null;
+    var price = planId && variant.selling_plans[planId]
+      ? variant.selling_plans[planId].price 
+      : variant.price;
+      var varPrice = parseFloat(extractContent(variant.price).replace('$', '').replace(',', ''))
+      var sellingPrice = Object.values(variant.selling_plans)[0].price
+      var sellingPriceFloat = parseFloat(extractContent(Object.values(variant.selling_plans)[0].price).replace('$', '').replace(',', ''))
+      var savings = ((varPrice - sellingPriceFloat) / varPrice * 100).toFixed(0);
+    var selectors = [
+      '#ProductPrice',
+      '#productPrice-product-template',
+      '#ProductPrice-product-template',
+      '#productPrice > .visually-hidden',
+      '.price .price-item--regular',
+      '.product__price .price-item--regular',
+      '.product__price .product__price--reg',
+      '.product__price .product__current-price',
+      '.product-single__price',
+      '[id^=productPrice-]',
+      '.price .money',
+      '.product__price',
+      '[data-product-price]',
+      '.current_price .money'
+    ].join(',');
+    var wrapper = planSelector.closest('div[data-section-type], .shopify-section');
+    if (!wrapper || !wrapper.length) {
+      wrapper = document.body;
+    }
+    var priceContainers = wrapper.querySelectorAll(selectors);
+    priceContainers.forEach(function rewritePrice(container) {
+      if (extractContent(container.innerHTML) !== extractContent(price.toString())) {
+        container.innerHTML = price;
+      }
+    });
+
+    /*var oneTimes = planSelector.querySelectorAll('.one-time-price');
+    oneTimes.forEach(function(oneTime) {
+      const newText = `One-time Purchase: ${variant.price}`;
+      if (oneTime.textContent !== newText) {
+        oneTime.textContent = newText;
+      }
+    });
+    var subscribeAndSaves = planSelector.querySelectorAll('.subscribe-price');
+    subscribeAndSaves.forEach(function(subscribeAndSave) {
+      const newText = `Subscribe & Save (${savings}%): ${sellingPrice}`;
+      if (subscribeAndSave.textContent !== newText) {
+        subscribeAndSave.textContent = newText;
+      }
+    }); */
+  }
+
+  function updateSellingPlanFormId(planSelector) {
+    var planId = getPlanId(planSelector);
+    var sellingPlanFormId = planSelector.querySelector('[name="selling_plan"]');
+    if (!sellingPlanFormId) {
+      return;
+    }
+    var noValueAndNoPlan = planId == null && sellingPlanFormId.value === '';
+    if (sellingPlanFormId.value != planId && !noValueAndNoPlan) {
+      sellingPlanFormId.value = planId;
+    }
+  }
+
+  function filterGroupsForVariantAndThenUpdate(planSelector) {
+    var variantId = getVariantId(planSelector);
+    if (!variantId) {
+      return;
+    }
+    var product = JSON.parse(planSelector.dataset.product);
+    var variant = product.variants_by_id[variantId];
+    let hasSubscriptionAvailable = false;
+    planSelector.querySelectorAll('[name="skio-subscription"]').forEach(function(node) {
+      var groupId = node.querySelector('[name="skio-subscription-value"]').value;
+      var isAvailable = Boolean(groupId && variant && variant.group_ids && variant.group_ids[groupId]);
+      if (isAvailable) {
+        hasSubscriptionAvailable = true;
+        if (node.className !== 'available') {
+          node.className = 'available';
+        }
+      } else if (node.className !== 'unavailable') {
+        node.className = 'unavailable';
+      }
+    });
+
+    planSelector.querySelectorAll('[name="skio-one-time"]').forEach(function(node) {
+      var isAvailable = !product.requires_selling_plan && hasSubscriptionAvailable;
+      if (isAvailable) {
+        if (node.className !== 'available') {
+          node.className = 'available';
+        }
+      } else if (node.className !== 'unavailable') {
+        node.className = 'unavailable';
+      }
+    });
+
+    updatePrice(planSelector);
+    updateSellingPlanFormId(planSelector);
+    updateCheckedSellingPlanGroup(planSelector)
+  }
+
+  function getPlanId(planSelector) {
+    try {
+      var form = planSelector.closest('form[action*="/cart/add"]');
+      var subscription = form.querySelector('.available[name="skio-subscription"] select');
+      var subscriptionChecked = form.querySelector('.available[name="skio-subscription"] [name="skio-subscription-value"]').checked;
+      if (subscription && subscriptionChecked) {
+        return parseInt(subscription.value);
+      }
+    } catch {}
+     return null;
+  }
+
+  function getVariantId(planSelector) {
+    try {
+      var form = planSelector.closest('form[action*="/cart/add"]');
+      var input = form.querySelector('select[name="id"],input[name="id"],button[name="id"]');
+      return parseInt(input.value);
+    } catch(e) {
+      return null;
+    }
+  }
+
+  function updateCheckedSellingPlanGroup(planSelector) {
+    var planId = getPlanId(planSelector);
+    var form = planSelector.closest('form[action*="/cart/add"]');
+    if (planId) {
+      var subscription = form.querySelector('.available[name="skio-subscription"] [name="skio-subscription-value"]');
+      if (subscription && subscription.checked !== true) {
+        subscription.checked = true;
+      }
+      form.querySelectorAll('[data-skio-plan-options]').forEach(function(a) {
+        if (a && a.style.display !== 'flex') {
+          a.style.display = 'flex';
+        }
+      })
+    } else {
+      var oneTime = form.querySelector('.available[name="skio-one-time"] [name="skio-subscription-value"]');
+      if (oneTime && oneTime.checked !== true) {
+        oneTime.checked = true;
+      }
+      form.querySelectorAll('[data-skio-plan-options]').forEach(function(a) {
+        if (a && a.style.display !== 'none') {
+          a.style.display = 'none';
+        }
+      })
+    }
+  }
+
+  function addObserver(planSelector) {
+    const rewriteObserver = new MutationObserver(function(mutations) {
+      filterGroupsForVariantAndThenUpdate(planSelector);
+      /*if (window.swatchSelected) {
+        checkPlanOnSelect(planSelector);
+        window.swatchSelected = false;
+      }*/
+    });
+    rewriteObserver.observe(document, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+    });
+  }
+
+  function setupPlanSelector(planSelector) {
+    var product = JSON.parse(planSelector.dataset.product);
+    filterGroupsForVariantAndThenUpdate(planSelector);
+    planSelector.style.display = 'initial';
+  }
+
+  function checkPlanOnSelect(planSelector) {
+    console.log('planSelector', planSelector);
+    var form = planSelector ? planSelector.closest('form[action*="/cart/add"]') : document;
+    var subscriptionRadioBox = form.querySelector('.available[name="skio-subscription"] [name="skio-subscription-value"]');
+    console.log('subscriptionRadioBox', subscriptionRadioBox);
+    if (subscriptionRadioBox && !subscriptionRadioBox.checked) {
+      subscriptionRadioBox.checked = true;
+    }
+  }
+
+  // check all sub boxes
+  function initialCheckPlanOnSelect() {
+    var subscriptionRadioBoxes = document.querySelectorAll('[name="skio-subscription"] [name="skio-subscription-value"]');
+    subscriptionRadioBoxes.forEach(function (subscriptionRadioBox) {
+      if (!subscriptionRadioBox.checked) {
+        subscriptionRadioBox.checked = true;
+      }
+    });
+  }
+
+  function onLoad() {
+    patchRequests();
+    document.querySelectorAll('fieldset.skio-plan-picker').forEach(function (planSelector) {
+      setupPlanSelector(planSelector);
+      addObserver(planSelector);
+      planSelector.querySelectorAll('[name="skio-subscription-value"]').forEach(function(node) {
+        node.addEventListener('change', function (e) {
+          filterGroupsForVariantAndThenUpdate(planSelector);
+        });
+      });
+      planSelector.querySelectorAll('select').forEach(function(node) {
+        node.addEventListener('change', function (e) {
+          checkPlanOnSelect(planSelector);
+          filterGroupsForVariantAndThenUpdate(planSelector);
+        });
+      });
+    });
+  }
+ 
+  if (document.readyState !== 'loading') {
+    onLoad();
+  } else {
+    window.addEventListener('DOMContentLoaded', function () {
+      onLoad();
+    });
+  }
+</script>
+
+  <script>(function(w,d,t,r,u){var f,n,i;w[u]=w[u]||[],f=function(){var o={ti:"17553163"};o.q=w[u],w[u]=new UET(o),w[u].push("pageLoad")},n=d.createElement(t),n.src=r,n.async=1,n.onload=n.onreadystatechange=function(){var s=this.readyState;s&&s!=="loaded"&&s!=="complete"||(f(),n.onload=n.onreadystatechange=null)},i=d.getElementsByTagName(t)[0],i.parentNode.insertBefore(n,i)})(window,document,"script","//bat.bing.com/bat.js","uetq");</script>
+<!-- Added by AVADA SEO Suite -->
+
+
+
+
+
+
+<meta name="twitter:image" content="http://cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg.png?v=1634862514">
+    
+
+
+
+
+<!-- Added by AVADA SEO Suite: Product Structured Data -->
+<script type="application/ld+json">{
+"@context": "https://schema.org/",
+"@type": "Product",
+"@id": "4829850632253",
+"name": "Half n&#39; Half",
+"description": "This Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.Each tube is filled with 1 pound. ",
+"brand": {
+  "@type": "Brand",
+  "name": "Licorice.com"
+},
+"offers": {
+  "@type": "AggregateOffer",
+  "offerCount": "1",
+  "lowPrice": "15.0",
+  "highPrice": "15.0",
+  "priceCurrency": "USD"
+},
+"image": [
+  "https://cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg.png?v=1634862514",
+  "https://cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068.jpg?v=1607108492",
+  "https://cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51.jpg?v=1607108505"
+],
+"releaseDate": "2020-11-09 00:50:10 -0500",
+"sku": "L_H_N_H",
+"mpn": "L_H_N_H"}</script>
+<!-- /Added by AVADA SEO Suite --><!-- Added by AVADA SEO Suite: Breadcrumb Structured Data  -->
+<script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [{
+    "@type": "ListItem",
+    "position": 1,
+    "name": "Home",
+    "item": "https://licorice.com"
+  }, {
+    "@type": "ListItem",
+    "position": 2,
+    "name": "Half n&#39; Half",
+    "item": "https://licorice.com/products/half-n-half"
+  }]
+}
+</script>
+<!-- Added by AVADA SEO Suite -->
+
+
+<!-- /Added by AVADA SEO Suite -->
+
+  <meta name="p:domain_verify" content="36ac06d557ab7cd3b511ecfe255d8c8a"/>
+  <meta name="google-site-verification" content="OZcxbtbXBkO9z1_XAc5VsZKyfjdqTkeQ8NpTX8nnpR8" />
+  <meta name="facebook-domain-verification" content="7rarp8mv59pj5dsf64kzk7ldbptpsy" />
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#f30c21">
+  <link rel="canonical" href="https://licorice.com/products/half-n-half">
+  <meta name="format-detection" content="telephone=no">
+  <meta name="google-site-verification" content="-J0kYaptvqRyubZoQbyxWTGhmCOdFB8IFO-uROnvPaU" /><link rel="shortcut icon" href="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Stacked_Logo_Red_01_-_Light_BG_801bb69f-c463-4fd2-ad7d-fbb3fd27c35c_32x32.jpg?v=1603896822" type="image/png" />
+  <title>Half n&#39; Half
+&ndash; Licorice.com
+</title><meta name="description" content="This Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel. Each tube is filled with 1 pound. "><meta property="og:site_name" content="Licorice.com">
+  <meta property="og:url" content="https://licorice.com/products/half-n-half">
+  <meta property="og:title" content="Half n' Half">
+  <meta property="og:type" content="product">
+  <meta property="og:description" content="This Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel. Each tube is filled with 1 pound. "><meta property="og:price:amount" content="15.00">
+    <meta property="og:price:currency" content="USD"><meta property="og:image" content="http://cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_1200x630.png?v=1634862514"><meta property="og:image" content="http://cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068_1200x630.jpg?v=1607108492"><meta property="og:image" content="http://cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51_1200x630.jpg?v=1607108505">
+  <meta property="og:image:secure_url" content="https://cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_1200x630.png?v=1634862514"><meta property="og:image:secure_url" content="https://cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068_1200x630.jpg?v=1607108492"><meta property="og:image:secure_url" content="https://cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51_1200x630.jpg?v=1607108505">
+  <meta name="twitter:site" content="@">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Half n' Half">
+  <meta name="twitter:description" content="This Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel. Each tube is filled with 1 pound. ">
+
+
+  <style data-shopify>
+  @font-face {
+  font-family: "Neue Haas Unica";
+  font-weight: 800;
+  font-style: normal;
+  src: url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_n8.eb1b3a39984756af983b9ee9b6ab428513b446bb.woff2?h1=bGljb3JpY2UuY29t&hmac=7985e83ccd691d7fd526fcb80f4989c0bd2803e6e0e81a9395aba0a6d3ba96f9") format("woff2"),
+       url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_n8.7f56fa216abcc69cbcef829e4de24e7bdb23ce57.woff?h1=bGljb3JpY2UuY29t&hmac=dcb6152f7bc4a3caa0c649417fe5746374a00cc0f9f6e3f902e04aa611254af6") format("woff");
+}
+
+  @font-face {
+  font-family: "Neue Haas Unica";
+  font-weight: 400;
+  font-style: normal;
+  src: url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_n4.520eb21cee3158fb9a058bc588d9a342a8ebfda3.woff2?h1=bGljb3JpY2UuY29t&hmac=83b81d7902e5e93a3772875e7753fdf6f32705de7ff6e24498638c6b22cbb7e1") format("woff2"),
+       url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_n4.ee326ff2e5d691eee9f3e495ed05cefcb4c2db78.woff?h1=bGljb3JpY2UuY29t&hmac=617fb712eea5a2a49c835810a84744313b1b0711aa200e9af951ca8c6c080491") format("woff");
+}
+
+
+  @font-face {
+  font-family: "Neue Haas Unica";
+  font-weight: 600;
+  font-style: normal;
+  src: url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_n6.811a1650e21f1bac45d3959cf135802431a07f0f.woff2?h1=bGljb3JpY2UuY29t&hmac=d609fce7045a03595f2feace10f654745d622e76f48cc84425dba0dcf7d95705") format("woff2"),
+       url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_n6.f9e6698fdff14cbabfacf5e20220e55548fa61be.woff?h1=bGljb3JpY2UuY29t&hmac=e1e31c085728a5a65dc10cfc93274ff2c0c9004390296ed3e71e493384e02323") format("woff");
+}
+
+  @font-face {
+  font-family: "Neue Haas Unica";
+  font-weight: 400;
+  font-style: italic;
+  src: url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_i4.011c8c6fd0e4092b2f8404c7a5ef6555d61530b8.woff2?h1=bGljb3JpY2UuY29t&hmac=acf5c658f19853ea9f0685f5bac2f08609cd48c2ccb4c90e0dde3c298d212ef8") format("woff2"),
+       url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_i4.02fc5650c9b4be4b51d941be363f2c7a553898c6.woff?h1=bGljb3JpY2UuY29t&hmac=fe9f63cafa21153ec8d090e8eb8927cda277a9875c3117a726a363b83ceb2831") format("woff");
+}
+
+  @font-face {
+  font-family: "Neue Haas Unica";
+  font-weight: 600;
+  font-style: italic;
+  src: url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_i6.b8c5ef668db291f2c5d9c275e2635ba1fead1c90.woff2?h1=bGljb3JpY2UuY29t&hmac=47f2c9ce91a82a49330c285cd7f1375de7146806f0c56beb62e594c21d818f74") format("woff2"),
+       url("https://fonts.shopifycdn.com/neue_haas_unica/neuehaasunica_i6.3363176b64a45aad70c218c1908772b375a3b441.woff?h1=bGljb3JpY2UuY29t&hmac=f55c659bf6e4f2a68cf52c7a4e096e58d7c133c463cd8918f5a43fad86825a32") format("woff");
+}
+
+</style>
+
+  <link href="//cdn.shopify.com/s/files/1/0275/6984/8381/t/52/assets/theme.scss.css?v=6060360709943118929" rel="stylesheet" type="text/css" media="all" />
+
+  <style data-shopify>
+    .collection-item__title {
+      font-size: 19.2px;
+    }
+
+    @media screen and (min-width: 769px) {
+      .collection-item__title {
+        font-size: 24px;
+      }
+    }
+  </style>
+  <script src="https://cdn.intelligems.io/eefdd615513d.js"></script>
+
+  <script>
+    document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+
+    window.theme = window.theme || {};
+    theme.strings = {
+      addToCart: "Add to bag",
+      soldOut: "Coming Back Soon",
+      unavailable: "Unavailable",
+      stockLabel: "Only [count] items in stock!",
+      willNotShipUntil: "Will not ship until [date]",
+      willBeInStockAfter: "Will be in stock after [date]",
+      waitingForStock: "Inventory on the way",
+      savePrice: "Save [saved_amount]",
+      cartEmpty: "Your cart is currently empty.",
+      cartTermsConfirmation: "You must agree with the terms and conditions of sales to check out"
+    };
+    theme.settings = {
+      dynamicVariantsEnable: true,
+      dynamicVariantType: "button",
+      cartType: "page",
+      currenciesEnabled: false,
+      nativeMultiCurrency: 1 > 1 ? true : false,
+      moneyFormat: "${{amount}}",
+      saveType: "dollar",
+      recentlyViewedEnabled: false,
+      predictiveSearch: true,
+      predictiveSearchType: "product",
+      inventoryThreshold: 10,
+      quickView: false,      
+      themeName: 'Custom',
+      themeVersion: "1.0.0"
+
+    };
+  </script>
+
+<script type="text/javascript">     
+  var AddShoppersWidgetOptions = { 'loadCss': false };     
+  (!function(){         
+    var t=document.createElement("script");         
+    t.type="text/javascript",         
+      t.async=!0,         
+      t.id="AddShoppers",         
+      t.src="https://shop.pe/widget/widget_async.js#60ae89ea73efc32edcdb48fb",         
+      document.getElementsByTagName("head")[0].appendChild(t)     
+  }()); 
+  </script>
+  
+  <script>window.performance && window.performance.mark && window.performance.mark('shopify.content_for_header.start');</script><meta name="google-site-verification" content="k-jqR85BrhkAb0BTnOcYTy53ZCNs29fJ_zD7TMh7NzE">
+<meta name="google-site-verification" content="flzVrLrEkboosuBcGqNXYl85a69k-5-ExPz9ZoRlK50">
+<meta id="shopify-digital-wallet" name="shopify-digital-wallet" content="/27569848381/digital_wallets/dialog">
+<meta name="shopify-checkout-api-token" content="407b9d451448e5795282beee1342529e">
+<meta id="in-context-paypal-metadata" data-shop-id="27569848381" data-venmo-supported="true" data-environment="production" data-locale="en_US" data-paypal-v4="true" data-currency="USD">
+<meta id="amazon-payments-metadata" data-amazon-payments="true" data-amazon-payments-seller-id="A10NZJ8R87RLPH" data-amazon-payments-callback-url="https://licorice.com/27569848381/amazon_payments/callback" data-amazon-payments-sandbox-mode="false" data-amazon-payments-client-id="amzn1.application-oa2-client.511ed23fb09843aebaf70a1871b0cd4f" data-amazon-payments-region="US" data-amazon-payments-language="en-US" data-amazon-payments-widget-library-url="https://static-na.payments-amazon.com/OffAmazonPayments/us/js/Widgets.js">
+<link rel="alternate" type="application/json+oembed" href="https://licorice.com/products/half-n-half.oembed">
+<script id="apple-pay-shop-capabilities" type="application/json">{"shopId":27569848381,"countryCode":"US","currencyCode":"USD","merchantCapabilities":["supports3DS"],"merchantId":"gid:\/\/shopify\/Shop\/27569848381","merchantName":"Licorice.com","requiredBillingContactFields":["postalAddress","email"],"requiredShippingContactFields":["postalAddress","email"],"shippingType":"shipping","supportedNetworks":["visa","masterCard","amex","discover","elo","jcb","chinaUnionPay"],"total":{"type":"pending","label":"Licorice.com","amount":"1.00"},"shopifyPaymentsEnabled":true,"supportsSubscriptions":true}</script>
+<script id="shopify-features" type="application/json">{"accessToken":"407b9d451448e5795282beee1342529e","betas":["rich-media-storefront-analytics"],"domain":"licorice.com","predictiveSearch":true,"shopId":27569848381,"smart_payment_buttons_url":"https:\/\/cdn.shopify.com\/shopifycloud\/payment-sheet\/assets\/latest\/spb.en.js","dynamic_checkout_cart_url":"https:\/\/cdn.shopify.com\/shopifycloud\/payment-sheet\/assets\/latest\/dynamic-checkout-cart.en.js","locale":"en"}</script>
+<script>var Shopify = Shopify || {};
+Shopify.shop = "licorice-shop.myshopify.com";
+Shopify.locale = "en";
+Shopify.currency = {"active":"USD","rate":"1.0"};
+Shopify.country = "US";
+Shopify.theme = {"name":"Licorice - 04.05 - Press Bar | Hero 3","id":122774126653,"theme_store_id":null,"role":"main"};
+Shopify.theme.handle = "null";
+Shopify.theme.style = {"id":null,"handle":null};
+Shopify.cdnHost = "cdn.shopify.com";
+Shopify.routes = Shopify.routes || {};
+Shopify.routes.root = "/";</script>
+<script type="module">!function(o){(o.Shopify=o.Shopify||{}).modules=!0}(window);</script>
+<script>!function(o){function n(){var o=[];function n(){o.push(Array.prototype.slice.apply(arguments))}return n.q=o,n}var t=o.Shopify=o.Shopify||{};t.loadFeatures=n(),t.autoloadFeatures=n()}(window);</script>
+<script>window.ShopifyPay = window.ShopifyPay || {};
+window.ShopifyPay.apiHost = "shop.app\/pay";</script>
+<script>(function() {
+  function asyncLoad() {
+    var urls = ["https:\/\/vellir-us-west-2.s3-us-west-2.amazonaws.com\/sharelab\/sharelab.min.js?shop=licorice-shop.myshopify.com","https:\/\/static.klaviyo.com\/onsite\/js\/klaviyo.js?company_id=SEfCkd\u0026shop=licorice-shop.myshopify.com","https:\/\/static.klaviyo.com\/onsite\/js\/klaviyo.js?company_id=SEfCkd\u0026shop=licorice-shop.myshopify.com","\/\/dynamic.criteo.com\/js\/ld\/ld.js?a=78398\u0026shop=licorice-shop.myshopify.com","https:\/\/hello.zonos.com\/shop-duty-tax\/hello.js?1604527701820\u0026shop=licorice-shop.myshopify.com","https:\/\/str.rise-ai.com\/?shop=licorice-shop.myshopify.com","https:\/\/strn.rise-ai.com\/?shop=licorice-shop.myshopify.com","https:\/\/container.pepperjam.com\/1793115434.js?shop=licorice-shop.myshopify.com","\/\/staticw2.yotpo.com\/7pysJMKE22Kw3SnGlc8PBZrd8rzByjodfnKxkBPi\/widget.js?shop=licorice-shop.myshopify.com","https:\/\/script.crazyegg.com\/pages\/scripts\/0089\/2756.js?shop=licorice-shop.myshopify.com","https:\/\/cdn.nmgassets.com\/LIXIUP576IBP.js?shop=licorice-shop.myshopify.com","https:\/\/cdn.attn.tv\/licorice\/dtag.js?shop=licorice-shop.myshopify.com","https:\/\/skiocheck.com\/?shop=licorice-shop.myshopify.com","https:\/\/intg.snapchat.com\/shopify\/shopify-scevent-init.js?id=c96b7554-44f7-49a6-8a00-23262be3714b\u0026shop=licorice-shop.myshopify.com","\/\/cdn.shopify.com\/proxy\/65be89d9fa6d933ebedf8b54fd25952f8b9c396610f3e81707149956fe3a48e5\/bingshoppingtool-t2app-prod.trafficmanager.net\/uet\/tracking_script?shop=licorice-shop.myshopify.com\u0026sp-cache-control=cHVibGljLCBtYXgtYWdlPTkwMA","https:\/\/seo.apps.avada.io\/avada-seo-installed.js?shop=licorice-shop.myshopify.com","https:\/\/99418-1398787-raikfcquaxqncofqfm.stackpathdns.com\/assets\/js\/giftship.6.1.3.js?shop=licorice-shop.myshopify.com","https:\/\/cdn.rebuyengine.com\/onsite\/js\/rebuy.js?shop=licorice-shop.myshopify.com"];
+    for (var i = 0; i < urls.length; i++) {
+      var s = document.createElement('script');
+      s.type = 'text/javascript';
+      s.async = true;
+      s.src = urls[i];
+      var x = document.getElementsByTagName('script')[0];
+      x.parentNode.insertBefore(s, x);
+    }
+  };
+  if(window.attachEvent) {
+    window.attachEvent('onload', asyncLoad);
+  } else {
+    window.addEventListener('load', asyncLoad, false);
+  }
+})();</script>
+<script id="__st">var __st={"a":27569848381,"offset":-14400,"reqid":"4bed0946-a2c5-41ee-bf13-151fca7237b3","pageurl":"licorice.com\/products\/half-n-half","u":"50f410519e18","p":"product","rtyp":"product","rid":4829850632253};</script>
+<script>window.ShopifyPaypalV4VisibilityTracking = true;</script>
+<script>!function(o){o.addEventListener("DOMContentLoaded",function(){window.Shopify=window.Shopify||{},window.Shopify.recaptchaV3=window.Shopify.recaptchaV3||{siteKey:"6LcCR2cUAAAAANS1Gpq_mDIJ2pQuJphsSQaUEuc9"};var t=['form[action*="/contact"] input[name="form_type"][value="contact"]','form[action*="/comments"] input[name="form_type"][value="new_comment"]','form[action*="/account"] input[name="form_type"][value="customer_login"]','form[action*="/account"] input[name="form_type"][value="recover_customer_password"]','form[action*="/account"] input[name="form_type"][value="create_customer"]','form[action*="/contact"] input[name="form_type"][value="customer"]'].join(",");function n(e){e=e.target;null==e||null!=(e=function e(t,n){if(null==t.parentElement)return null;if("FORM"!=t.parentElement.tagName)return e(t.parentElement,n);for(var o=t.parentElement.action,r=0;r<n.length;r++)if(-1!==o.indexOf(n[r]))return t.parentElement;return null}(e,["/contact","/comments","/account"]))&&null!=e.querySelector(t)&&((e=o.createElement("script")).setAttribute("src","https://cdn.shopify.com/shopifycloud/storefront-recaptcha-v3/v0.6/index.js"),o.body.appendChild(e),o.removeEventListener("focus",n,!0),o.removeEventListener("change",n,!0),o.removeEventListener("click",n,!0))}o.addEventListener("click",n,!0),o.addEventListener("change",n,!0),o.addEventListener("focus",n,!0)})}(document);</script>
+<script integrity="sha256-jv2X6Wco+RqnTUpuisvoARrdoX0sC2zNhgChvdJFM5I=" data-source-attribution="shopify.loadfeatures" defer="defer" src="//cdn.shopify.com/shopifycloud/shopify/assets/storefront/load_feature-8efd97e96728f91aa74d4a6e8acbe8011adda17d2c0b6ccd8600a1bdd2453392.js" crossorigin="anonymous"></script>
+<script crossorigin="anonymous" defer="defer" src="//cdn.shopify.com/shopifycloud/shopify/assets/shopify_pay/storefront-b61f50798075db890698930c4405673937fe89353f7fea7be88b5ce16a9c0af8.js?v=20210208"></script>
+<script integrity="sha256-h+g5mYiIAULyxidxudjy/2wpCz/3Rd1CbrDf4NudHa4=" data-source-attribution="shopify.dynamic-checkout" defer="defer" src="//cdn.shopify.com/shopifycloud/shopify/assets/storefront/features-87e8399988880142f2c62771b9d8f2ff6c290b3ff745dd426eb0dfe0db9d1dae.js" crossorigin="anonymous"></script>
+
+
+<style id="shopify-dynamic-checkout-cart">@media screen and (min-width: 750px) {
+  #dynamic-checkout-cart {
+    min-height: 50px;
+  }
+}
+
+@media screen and (max-width: 750px) {
+  #dynamic-checkout-cart {
+    min-height: 300px;
+  }
+}
+</style><script>window.performance && window.performance.mark && window.performance.mark('shopify.content_for_header.end');</script>
+
+  <script src="//cdn.shopify.com/s/files/1/0275/6984/8381/t/52/assets/vendor-scripts-v7.js" defer="defer"></script>
+
+  
+
+  <script src="//cdn.shopify.com/s/files/1/0275/6984/8381/t/52/assets/theme.js?v=14972339795446682571" defer="defer"></script>
+
+  <script src="//cdn.shopify.com/s/files/1/0275/6984/8381/t/52/assets/application.js?v=11286493652822013997" defer="defer"></script>
+  <script src="//cdn.shopify.com/s/files/1/0275/6984/8381/t/52/assets/sticky.js?v=12530823939208901309" defer="defer"></script><script defer>
+
+  /**
+   * IMPORTANT!
+   * Do not edit this file. Any changes made could be overwritten by Giftship at
+   * any time. If you need assistance, please reach out to us at support@gist-apps.com.
+   *
+   * The below code is critical to the functionality of Giftship's multiple shipping
+   * address and bundle features. It also greatly improves the load time of the
+   * application.
+   */
+
+  if (typeof(GIST) == 'undefined') {
+    window.GIST = GIST = {};
+  }
+  if (typeof(GIST.f) == 'undefined') {
+    GIST.f = {};
+  }
+
+  GIST.f._isEmpty = function(obj){
+
+    for(var prop in obj) {
+      if(obj.hasOwnProperty(prop)) {
+        return false;
+      }
+    }
+
+    return JSON.stringify(obj) === JSON.stringify({});
+
+  };
+
+  GIST.bundles   = [];
+  GIST.remove    = {};
+  GIST.discounts = [];
+
+  
+  
+  
+
+  
+
+  
+  GIST._bundleCart = false;
+  
+
+  
+
+  if (GIST.remove && !GIST.f._isEmpty(GIST.remove) ) {
+
+    GIST.xhr = new XMLHttpRequest();
+    GIST.xhr.open('POST', '/cart/update.js');
+    GIST.xhr.setRequestHeader('Content-Type', 'application/json');
+    GIST.xhr.onload = function() {
+      if (GIST.xhr.status === 200) {
+       var userInfo = JSON.parse(GIST.xhr.responseText);
+      }
+    };
+    GIST.xhr.send(JSON.stringify({updates:GIST.remove}));
+
+  }
+
+</script>
+
+
+
+
+
+<script type="text/javascript" src="https://99418-1398787-raikfcquaxqncofqfm.stackpathdns.com/assets/js/giftship.js" defer></script>
+<link rel="stylesheet" type="text/css" href="https://99418-1398787-raikfcquaxqncofqfm.stackpathdns.com/assets/css/giftship.global.css">
+
+
+
+
+
+
+
+
+    	
+  <script>
+    var GsLoaded = function() {
+      jQuery('#gsDeliveryDate').attr('placeholder', 'Delivery Date');
+    }
+  </script>
+<!-- "snippets/hulkcode_common.liquid" was not rendered, the associated app was uninstalled --><script src='https://volumediscount.hulkapps.com/api/v2/frontend/hulkcode.js' defer='defer'></script> 
+<script>
+  var _talkableq = _talkableq || [];
+  _talkableq.push(['authenticate_customer', {"email":"","first_name":"","last_name":"","customer_id":""}]);
+</script>
+<script src="//d2jjzw81hqbuqv.cloudfront.net/integration/talkable-4.7.0.min.js" type="text/javascript"></script>
+<script async src="//d2jjzw81hqbuqv.cloudfront.net/integration/clients/licorice-com.min.js" type="text/javascript"></script>
+
+  
+  
+  
+ 
+  
+  <!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-178268237-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-178268237-1');
+</script>
+
+  
+  
+
+  
+  
+  
+  
+  
+  
+  
+<link href="https://monorail-edge.shopifysvc.com" rel="dns-prefetch">
+<script>(function(){if ("sendBeacon" in navigator && "performance" in window) {var session_token = document.cookie.match(/_shopify_s=([^;]*)/);function handle_abandonment_event(e) {var entries = performance.getEntries().filter(function(entry) {return /monorail-edge.shopifysvc.com/.test(entry.name);});if (!window.abandonment_tracked && entries.length === 0) {window.abandonment_tracked = true;var currentMs = Date.now();var navigation_start = performance.timing.navigationStart;var payload = {shop_id: 27569848381,url: window.location.href,navigation_start,duration: currentMs - navigation_start,session_token: session_token && session_token.length === 2 ? session_token[1] : "",page_type: "product"};window.navigator.sendBeacon("https://monorail-edge.shopifysvc.com/v1/produce", JSON.stringify({schema_id: "online_store_buyer_site_abandonment/1.1",payload: payload,metadata: {event_created_at_ms: currentMs,event_sent_at_ms: currentMs}}));}}window.addEventListener('pagehide', handle_abandonment_event);}}());</script>
+<script>window.ShopifyAnalytics = window.ShopifyAnalytics || {};
+window.ShopifyAnalytics.meta = window.ShopifyAnalytics.meta || {};
+window.ShopifyAnalytics.meta.currency = 'USD';
+var meta = {"product":{"id":4829850632253,"gid":"gid:\/\/shopify\/Product\/4829850632253","vendor":"Licorice.com","type":"Self-Consumption","variants":[{"id":32942333853757,"price":1500,"name":"Half n' Half","public_title":null,"sku":"L_H_N_H"}]},"page":{"pageType":"product","resourceType":"product","resourceId":4829850632253}};
+for (var attr in meta) {
+  window.ShopifyAnalytics.meta[attr] = meta[attr];
+}</script>
+<script>window.ShopifyAnalytics.merchantGoogleAnalytics = function() {
+  
+};
+</script>
+<script class="analytics">(window.gaDevIds=window.gaDevIds||[]).push('BwiEti');
+
+
+(function () {
+  var customDocumentWrite = function(content) {
+    var jquery = null;
+
+    if (window.jQuery) {
+      jquery = window.jQuery;
+    } else if (window.Checkout && window.Checkout.$) {
+      jquery = window.Checkout.$;
+    }
+
+    if (jquery) {
+      jquery('body').append(content);
+    }
+  };
+
+  var hasLoggedConversion = function(token) {
+    if (token) {
+      return document.cookie.indexOf('loggedConversion=' + token) !== -1;
+    }
+    return false;
+  }
+
+  var setCookieIfConversion = function(token) {
+    if (token) {
+      var twoMonthsFromNow = new Date(Date.now());
+      twoMonthsFromNow.setMonth(twoMonthsFromNow.getMonth() + 2);
+
+      document.cookie = 'loggedConversion=' + token + '; expires=' + twoMonthsFromNow;
+    }
+  }
+
+  var trekkie = window.ShopifyAnalytics.lib = window.trekkie = window.trekkie || [];
+  if (trekkie.integrations) {
+    return;
+  }
+  trekkie.methods = [
+    'identify',
+    'page',
+    'ready',
+    'track',
+    'trackForm',
+    'trackLink'
+  ];
+  trekkie.factory = function(method) {
+    return function() {
+      var args = Array.prototype.slice.call(arguments);
+      args.unshift(method);
+      trekkie.push(args);
+      return trekkie;
+    };
+  };
+  for (var i = 0; i < trekkie.methods.length; i++) {
+    var key = trekkie.methods[i];
+    trekkie[key] = trekkie.factory(key);
+  }
+  trekkie.load = function(config) {
+    trekkie.config = config || {};
+    trekkie.config.initialDocumentCookie = document.cookie;
+    var first = document.getElementsByTagName('script')[0];
+    var script = document.createElement('script');
+    script.type = 'text/javascript';
+    script.onerror = function(e) {
+      var scriptFallback = document.createElement('script');
+      scriptFallback.type = 'text/javascript';
+      scriptFallback.onerror = function(error) {
+              var Monorail = {
+      produce: function produce(monorailDomain, schemaId, payload) {
+        var currentMs = new Date().getTime();
+        var event = {
+          schema_id: schemaId,
+          payload: payload,
+          metadata: {
+            event_created_at_ms: currentMs,
+            event_sent_at_ms: currentMs
+          }
+        };
+        return Monorail.sendRequest("https://" + monorailDomain + "/v1/produce", JSON.stringify(event));
+      },
+      sendRequest: function sendRequest(endpointUrl, payload) {
+        // Try the sendBeacon API
+        if (window && window.navigator && typeof window.navigator.sendBeacon === 'function' && typeof window.Blob === 'function' && !Monorail.isIos12()) {
+          var blobData = new window.Blob([payload], {
+            type: 'text/plain'
+          });
+    
+          if (window.navigator.sendBeacon(endpointUrl, blobData)) {
+            return true;
+          } // sendBeacon was not successful
+    
+        } // XHR beacon   
+    
+        var xhr = new XMLHttpRequest();
+    
+        try {
+          xhr.open('POST', endpointUrl);
+          xhr.setRequestHeader('Content-Type', 'text/plain');
+          xhr.send(payload);
+        } catch (e) {
+          console.log(e);
+        }
+    
+        return false;
+      },
+      isIos12: function isIos12() {
+        return window.navigator.userAgent.lastIndexOf('iPhone; CPU iPhone OS 12_') !== -1 || window.navigator.userAgent.lastIndexOf('iPad; CPU OS 12_') !== -1;
+      }
+    };
+    Monorail.produce('monorail-edge.shopifysvc.com',
+      'trekkie_storefront_load_errors/1.1',
+      {shop_id: 27569848381,
+      theme_id: 122774126653,
+      app_name: "storefront",
+      context_url: window.location.href,
+      source_url: "https://cdn.shopify.com/s/trekkie.storefront.7a1e33ad1202f755768e4821a6acd8fe61f84871.min.js"});
+
+      };
+      scriptFallback.async = true;
+      scriptFallback.src = 'https://cdn.shopify.com/s/trekkie.storefront.7a1e33ad1202f755768e4821a6acd8fe61f84871.min.js';
+      first.parentNode.insertBefore(scriptFallback, first);
+    };
+    script.async = true;
+    script.src = 'https://cdn.shopify.com/s/trekkie.storefront.7a1e33ad1202f755768e4821a6acd8fe61f84871.min.js';
+    first.parentNode.insertBefore(script, first);
+  };
+  trekkie.load(
+    {"Trekkie":{"appName":"storefront","development":false,"defaultAttributes":{"shopId":27569848381,"isMerchantRequest":null,"themeId":122774126653,"themeCityHash":"5277683478486855188","contentLanguage":"en","currency":"USD"},"isServerSideCookieWritingEnabled":true},"Google Analytics":{"trackingId":"UA-178268237-1","domain":"auto","siteSpeedSampleRate":"10","enhancedEcommerce":true,"doubleClick":true,"includeSearch":true},"Facebook Pixel":{"pixelIds":["366938294333459"],"agent":"plshopify1.2"},"Pinterest Pixel":{"pixelId":"2614036464366"},"Snap Pixel":{"pixelId":"c96b7554-44f7-49a6-8a00-23262be3714b"},"TikTok Pixel":{"pixelId":"C7SKIS7J6988A1DVNE4G"},"Session Attribution":{},"S2S":{"emitV4CheckoutEvent":true,"facebookCapiEnabled":true,"facebookAppPixelId":"366938294333459","source":"trekkie-storefront-renderer"}}
+  );
+
+  var loaded = false;
+  trekkie.ready(function() {
+    if (loaded) return;
+    loaded = true;
+
+    window.ShopifyAnalytics.lib = window.trekkie;
+    
+      ga('require', 'linker');
+      function addListener(element, type, callback) {
+        if (element.addEventListener) {
+          element.addEventListener(type, callback);
+        }
+        else if (element.attachEvent) {
+          element.attachEvent('on' + type, callback);
+        }
+      }
+      function decorate(event) {
+        event = event || window.event;
+        var target = event.target || event.srcElement;
+        if (target && (target.getAttribute('action') || target.getAttribute('href'))) {
+          ga(function (tracker) {
+            var linkerParam = tracker.get('linkerParam');
+            document.cookie = '_shopify_ga=' + linkerParam + '; ' + 'path=/';
+          });
+        }
+      }
+      addListener(window, 'load', function(){
+        for (var i=0; i < document.forms.length; i++) {
+          var action = document.forms[i].getAttribute('action');
+          if(action && action.indexOf('/cart') >= 0) {
+            addListener(document.forms[i], 'submit', decorate);
+          }
+        }
+        for (var i=0; i < document.links.length; i++) {
+          var href = document.links[i].getAttribute('href');
+          if(href && href.indexOf('/checkout') >= 0) {
+            addListener(document.links[i], 'click', decorate);
+          }
+        }
+      });
+    
+
+    var originalDocumentWrite = document.write;
+    document.write = customDocumentWrite;
+    try { window.ShopifyAnalytics.merchantGoogleAnalytics.call(this); } catch(error) {};
+    document.write = originalDocumentWrite;
+      (function () {
+        if (window.BOOMR && (window.BOOMR.version || window.BOOMR.snippetExecuted)) {
+          return;
+        }
+        window.BOOMR = window.BOOMR || {};
+        window.BOOMR.snippetStart = new Date().getTime();
+        window.BOOMR.snippetExecuted = true;
+        window.BOOMR.snippetVersion = 12;
+        window.BOOMR.application = "storefront-renderer";
+        window.BOOMR.themeName = "Custom";
+        window.BOOMR.themeVersion = "1";
+        window.BOOMR.shopId = 27569848381;
+        window.BOOMR.themeId = 122774126653;
+        window.BOOMR.url =
+          "https://cdn.shopify.com/shopifycloud/boomerang/shopify-boomerang-1.0.0.min.js";
+        var where = document.currentScript || document.getElementsByTagName("script")[0];
+        var parentNode = where.parentNode;
+        var promoted = false;
+        var LOADER_TIMEOUT = 3000;
+        function promote() {
+          if (promoted) {
+            return;
+          }
+          var script = document.createElement("script");
+          script.id = "boomr-scr-as";
+          script.src = window.BOOMR.url;
+          script.async = true;
+          parentNode.appendChild(script);
+          promoted = true;
+        }
+        function iframeLoader(wasFallback) {
+          promoted = true;
+          var dom, bootstrap, iframe, iframeStyle;
+          var doc = document;
+          var win = window;
+          window.BOOMR.snippetMethod = wasFallback ? "if" : "i";
+          bootstrap = function(parent, scriptId) {
+            var script = doc.createElement("script");
+            script.id = scriptId || "boomr-if-as";
+            script.src = window.BOOMR.url;
+            BOOMR_lstart = new Date().getTime();
+            parent = parent || doc.body;
+            parent.appendChild(script);
+          };
+          if (!window.addEventListener && window.attachEvent && navigator.userAgent.match(/MSIE [67]./)) {
+            window.BOOMR.snippetMethod = "s";
+            bootstrap(parentNode, "boomr-async");
+            return;
+          }
+          iframe = document.createElement("IFRAME");
+          iframe.src = "about:blank";
+          iframe.title = "";
+          iframe.role = "presentation";
+          iframe.loading = "eager";
+          iframeStyle = (iframe.frameElement || iframe).style;
+          iframeStyle.width = 0;
+          iframeStyle.height = 0;
+          iframeStyle.border = 0;
+          iframeStyle.display = "none";
+          parentNode.appendChild(iframe);
+          try {
+            win = iframe.contentWindow;
+            doc = win.document.open();
+          } catch (e) {
+            dom = document.domain;
+            iframe.src = "javascript:var d=document.open();d.domain='" + dom + "';void(0);";
+            win = iframe.contentWindow;
+            doc = win.document.open();
+          }
+          if (dom) {
+            doc._boomrl = function() {
+              this.domain = dom;
+              bootstrap();
+            };
+            doc.write("<body onload='document._boomrl();'>");
+          } else {
+            win._boomrl = function() {
+              bootstrap();
+            };
+            if (win.addEventListener) {
+              win.addEventListener("load", win._boomrl, false);
+            } else if (win.attachEvent) {
+              win.attachEvent("onload", win._boomrl);
+            }
+          }
+          doc.close();
+        }
+        var link = document.createElement("link");
+        if (link.relList &&
+          typeof link.relList.supports === "function" &&
+          link.relList.supports("preload") &&
+          ("as" in link)) {
+          window.BOOMR.snippetMethod = "p";
+          link.href = window.BOOMR.url;
+          link.rel = "preload";
+          link.as = "script";
+          link.addEventListener("load", promote);
+          link.addEventListener("error", function() {
+            iframeLoader(true);
+          });
+          setTimeout(function() {
+            if (!promoted) {
+              iframeLoader(true);
+            }
+          }, LOADER_TIMEOUT);
+          BOOMR_lstart = new Date().getTime();
+          parentNode.appendChild(link);
+        } else {
+          iframeLoader(false);
+        }
+        function boomerangSaveLoadTime(e) {
+          window.BOOMR_onload = (e && e.timeStamp) || new Date().getTime();
+        }
+        if (window.addEventListener) {
+          window.addEventListener("load", boomerangSaveLoadTime, false);
+        } else if (window.attachEvent) {
+          window.attachEvent("onload", boomerangSaveLoadTime);
+        }
+        if (document.addEventListener) {
+          document.addEventListener("onBoomerangLoaded", function(e) {
+            e.detail.BOOMR.init({
+              producer_url: "https://monorail-edge.shopifysvc.com/v1/produce",
+              ResourceTiming: {
+                enabled: true,
+                trackedResourceTypes: ["script", "img", "css"]
+              },
+            });
+            e.detail.BOOMR.t_end = new Date().getTime();
+          });
+        } else if (document.attachEvent) {
+          document.attachEvent("onpropertychange", function(e) {
+            if (!e) e=event;
+            if (e.propertyName === "onBoomerangLoaded") {
+              e.detail.BOOMR.init({
+                producer_url: "https://monorail-edge.shopifysvc.com/v1/produce",
+                ResourceTiming: {
+                  enabled: true,
+                  trackedResourceTypes: ["script", "img", "css"]
+                },
+              });
+              e.detail.BOOMR.t_end = new Date().getTime();
+            }
+          });
+        }
+      })();
+    
+
+    window.ShopifyAnalytics.lib.page(null,{"pageType":"product","resourceType":"product","resourceId":4829850632253});
+
+    var match = window.location.pathname.match(/checkouts\/(.+)\/(thank_you|post_purchase)/)
+    var token = match? match[1]: undefined;
+    if (!hasLoggedConversion(token)) {
+      setCookieIfConversion(token);
+      window.ShopifyAnalytics.lib.track("Viewed Product",{"currency":"USD","variantId":32942333853757,"productId":4829850632253,"productGid":"gid:\/\/shopify\/Product\/4829850632253","name":"Half n' Half","price":"15.00","sku":"L_H_N_H","brand":"Licorice.com","variant":null,"category":"Self-Consumption","nonInteraction":true});
+      window.ShopifyAnalytics.lib.track("monorail:\/\/trekkie_storefront_viewed_product\/1.1",{"currency":"USD","variantId":32942333853757,"productId":4829850632253,"productGid":"gid:\/\/shopify\/Product\/4829850632253","name":"Half n' Half","price":"15.00","sku":"L_H_N_H","brand":"Licorice.com","variant":null,"category":"Self-Consumption","nonInteraction":true,"referer":"https:\/\/licorice.com\/products\/half-n-half"});
+    }
+  });
+
+  
+      var eventsListenerScript = document.createElement('script');
+      eventsListenerScript.async = true;
+      eventsListenerScript.src = "//cdn.shopify.com/shopifycloud/shopify/assets/shop_events_listener-fa61fd11817b231631d2fe43dc869d0b1d14a06332792d42f1a1d94bda5aa31e.js";
+      document.getElementsByTagName('head')[0].appendChild(eventsListenerScript);
+    
+})();</script>
+</head>
+
+<body class="template-product" data-transitions="false">
+
+  
+  
+
+  <a class="in-page-link visually-hidden skip-link" href="#MainContent">Skip to content</a>
+
+  <div id="PageContainer" class="page-container">
+    <div class="transition-body">
+
+    <div id="shopify-section-header" class="shopify-section">
+<script type="text/javascript" async> (() => { const cfgKey = "namogooDataLayer", categoriesCfgKey = "NmgDLProductCategories"; let userData = {}, siteData = {}, productData = {}, cartData = {}, searchProductsData = [], categoryProductsData = [], categoryData = {}; let utils = { objectIsEmpty: (obj) => { if (Array.isArray(obj)) { return obj.length === 0; } return Object.keys(obj).length === 0 && obj.constructor === Object; } }; let page = { href: () => window.location.href, pageType: () => { let pType = "product"; switch (pType) { case '404': case 'password': case 'list-collections': { return 'Other'; } case 'article': case 'blog': case 'page': { return 'Content Page'; } case 'cart': { return 'Cart'; } case 'collection': { return 'Category'; } case 'customers/account': case 'customers/reset_password': { return 'Account'; } case 'customers/activate_account': case 'customers/addresses': case 'customers/login': case 'customers/register': { return 'Customer Service' } case 'customers/order': { return 'Order Details'; } case 'gift_card': { return 'Promotion'; } case 'product': { return 'Product'; } case 'index': { return 'Homepage'; } case 'search': { return 'Search'; } } let href = page.href(); if (href.includes("/cart")) { return 'Cart'; } else if (href.includes("/account")) { return 'Account'; } else if (href.includes("/thank_you")) { return 'Order Confirmation'; } else if (href.includes("/orders/")) { return 'Order Details'; } else if (href.includes("/checkout")) { return 'Checkout'; } else { return 'Other'; } }, requiredDataLayerGroups: () => { let pt = page.pageType(); let groups = ['userData', 'siteData', 'cartData']; if (pt === 'Product'){ groups.push('productData'); } else if (pt === 'Category'){ groups.push('categoryData', 'categoryProductsData'); } else if (pt === 'Search'){ groups.push('searchProductsData'); } return groups; }, td: () => window.ShopifyAnalytics.lib.trekkie.defaultAttributes, meta: () => window.ShopifyAnalytics.meta, get: { user: { uniqToken: () => page.td().uniqToken, visitToken: () => page.td().visitToken, id: () => __st.cid, }, }, set: { userData: () => { userData.guestUserId = page.get.user.uniqToken(); userData.sessionId = page.get.user.visitToken(); let userId = page.get.user.id(); if (userId){ userData.userId = userId; userData.loginType = 'logged in user'; } else { userData.userId = ''; userData.loginType = 'guest user'; } }, siteData: () => { siteData.local = "en"; siteData.language = document.documentElement.lang; siteData.currency = "USD"; siteData.shopCurrency = "USD"; let currency = window.Currency ? window.Currency.currentCurrency : ''; siteData.cartCurrency = currency || "USD"; siteData.pageType = page.pageType(); siteData.timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;}, productData: () => {let selectedVariantId = page.meta().selectedVariantId || 32942333853757; let allVariants = [{ sku: "L_H_N_H", id: 32942333853757, salePrice: 1500, originalPrice: 1500, available: false, quantity: -2, },]; let selectedVariant = allVariants.filter(v => v.id == selectedVariantId)[0] || {}; productData.sku = selectedVariant.sku || ''; productData.id = 4829850632253; productData.variantId = selectedVariant.id; productData.title = "Half n&#39; Half"; productData.brand = "Licorice.com"; productData.salePrice = selectedVariant.salePrice / 100 + ''; productData.originalPrice = selectedVariant.originalPrice / 100 + ''; productData.quantity = selectedVariant.quantity; productData.inStock = selectedVariant.available; productData.imageUrl = "//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_small.png?v=1634862514"; let productCollections = [{ id: "158961762365", handle: "all", title: "All Our Flavors" },]; productData.categoryIds = []; productData.categoryNames = []; productData.categoryHandles = []; productCollections.forEach(collection => { productData.categoryIds.push(collection.id); productData.categoryNames.push(collection.title); productData.categoryHandles.push(collection.handle); });}, cartData: () => { cartData.total = 0 / 100 + ''; cartData.subTotal = 0 / 100 + '';  cartData.items = []; let productCategoriesData = {}; cartData.items.forEach(item => { productCategoriesData[item.variantId] = { categoryIds: item.categoryIds, categoryNames: item.categoryNames, categoryHandles: item.categoryHandles, } }); localStorage.setItem(categoriesCfgKey, JSON.stringify(productCategoriesData));cartData.totalQuantity = 0; }, categoryData: () => {}, categoryProductsData: () => { categoryProductsData.length = 0;}, searchProductsData: () => { searchProductsData.length = 0;}, } }; let setRequiredGroupsData = () => { let requiredDataLayerGroups = page.requiredDataLayerGroups(); requiredDataLayerGroups.forEach((item, index) => { if (utils.objectIsEmpty(eval(item))){ try { page.set[item]() } catch (e) { } } }); }; let setLog = (groupsList) => { let log = {}; groupsList.forEach((item, index) => { if (['userData', 'siteData', 'cartData', 'categoryData'].includes(item)){ log[item] = eval(item) } else if (['categoryProductsData', 'searchProductsData'].includes(item)){ log['items'] = eval(item) } else if (item === 'productData'){ log['items'] = [eval(item)] } }); window[cfgKey] = [log] }; let interval; let perform = (i=1000) => { interval = setInterval(() => { setRequiredGroupsData(); let c = 0; let requiredGroups = page.requiredDataLayerGroups(); requiredGroups.forEach((item, index) => { if (!utils.objectIsEmpty(eval(item))){ c++ } }); if (requiredGroups.length === c){ clearInterval(interval); setLog(requiredGroups) } }, i) }; perform(); let initialHref = window.location.href; let trackUrl = setInterval(() => { if (page.href() !== initialHref){ initialHref = page.href(); userData = {}; siteData = {}; productData = {}; cartData = {} ; searchProductsData = []; categoryProductsData = []; categoryData = {}; perform() } }, 1000) })();
+</script>
+
+
+
+
+
+
+
+<style data-shopify>
+  .site-nav__link,
+  .site-nav__dropdown-link:not(.site-nav__dropdown-link--top-level) {
+    font-size: 18px;
+  }
+  
+
+  
+
+  
+</style>
+
+<div data-section-id="header" data-section-type="header-section" class="header--oddit">
+  
+    
+
+
+  <div class="announcement-bar">
+    <div class="page-width">
+      <div
+        id="AnnouncementSlider"
+        class="announcement-slider announcement-slider--compact"
+        data-compact-style="true"
+        data-block-count="1">
+          
+        
+          
+            <div
+              id="AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8"
+              class="announcement-slider__slide"
+              data-index="0"
+              >
+              
+                <a class="announcement-link" href="https://www.pretzels.com/">
+              
+                
+                
+                  <span class="announcement-link-text">Check Out Our Other Brand»</span>
+                
+                
+                <img src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Wide_Logo_Circle_02_-_Light_BG-2x_250x.png?v=1634271191" alt="">
+                <style>
+                   
+                   #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 > a{
+                    display: grid;
+                    grid-template-columns: 1fr .7fr;
+                   }
+                  
+                  #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 .announcement-link-text::after{
+                    content: "";
+                    width: 2px;
+                    height: 1.1rem;
+                    background: black;
+                    display: inline-flex;
+                    margin: 0 1rem 0 1.5rem;
+                  }
+                  #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 .announcement-link-text{
+                    display: flex;
+                    justify-content: flex-end;
+                    align-items: center;
+                  }
+                  #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 img{
+                    display: flex;
+                    align-self: center;
+                    max-width: 122px;
+                  }
+                  #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 .announcement-link .announcement-link-text{
+                    text-decoration: none;
+                  }
+                  @media(max-width: 767px){
+                    #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8  {
+                      grid-template-columns: 1fr;
+                    }
+                    #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 .announcement-link-text::after{
+                      display: none;
+                    }
+                    #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 .announcement-link-text{
+                      justify-content: center;
+                      font-size: .7rem;
+                    }
+                    #AnnouncementSlide-d537f646-5f08-4492-a76c-1de0c3b91ff8 img{
+                      justify-self: center;
+                      margin-top: 5px;
+                    }
+                  }
+                </style>
+                
+              
+                </a>
+              
+            </div>
+        
+          
+        
+          
+        
+      </div>
+    </div>
+  </div>
+
+
+
+  
+
+  
+
+  <div class="header-sticky-wrapper">
+    <div class="header-wrapper">
+
+      
+      <header
+        class="site-header oddit-site-header"
+        data-sticky="true">
+        <div class="oddit-wrapper">
+          <div
+            class="header-layout header-layout--oddit page-width"
+            data-logo-align="left">
+             
+              <div class="site-nav modal-menu_opener">
+                <button
+                  type="button"
+                  class="site-nav__link site-nav__link--icon js-drawer-open-nav"
+                  data-open-and-close="true"
+                  data-is-oddit="true"
+                  aria-controls="NavDrawer">
+                  <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-hamburger" viewBox="0 0 64 64">
+                    <path d="M7 15h51M7"/>
+                    <path d="M7 32h43M7"/>
+                    <path d="M7 49h51"/>
+                  </svg>
+                  <svg viewBox="0 0 18 19" class="icon icon-close">
+                    <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd" stroke-linecap="square">
+                      <g transform="translate(-22.000000, -52.000000)" stroke="#FFFFFF" stroke-width="2">
+                        <g transform="translate(24.000000, 54.000000)">
+                          <line x1="0" y1="0.357142857" x2="14.4311523" y2="14.7882952" id="Line"></line>
+                          <line x1="0" y1="0.357142857" x2="14.4311523" y2="14.7882952" id="Line" transform="translate(7.500000, 7.500000) scale(1, -1) translate(-7.500000, -7.500000) "></line>
+                        </g>
+                      </g>
+                    </g>
+                  </svg>
+                  <span class="icon__fallback-text">Site navigation</span>
+                </button>
+              </div>
+              <div class="header-item header-item--logo">
+                
+  
+<style data-shopify>
+    .header-item--logo,
+    .header-layout--left-center .header-item--logo,
+    .header-layout--left-center .header-item--icons {
+      -webkit-box-flex: 0 1 150px;
+      -ms-flex: 0 1 150px;
+      flex: 0 1 150px;
+    }
+
+    @media only screen and (min-width: 769px) {
+      .header-item--logo,
+      .header-layout--left-center .header-item--logo,
+      .header-layout--left-center .header-item--icons {
+        -webkit-box-flex: 0 0 260px;
+        -ms-flex: 0 0 260px;
+        flex: 0 0 260px;
+      }
+    }
+
+    .site-header__logo a {
+      width: 150px;
+    }
+    .is-light .site-header__logo .logo--inverted {
+      width: 150px;
+    }
+    @media only screen and (min-width: 769px) {
+      .is-light .site-header__logo .logo--inverted {
+        width: 260px;
+      }
+    }
+    @media screen and (min-width: 768px) {
+      .site-header__logo a {
+        width: 200px;
+      }
+    }
+    @media screen and (min-width: 1024px) {
+      .site-header__logo a {
+        width: 260px;
+      }
+    }
+    </style>
+
+    
+      <div class="h1 site-header__logo" itemscope itemtype="http://schema.org/Organization">
+    
+
+    
+      
+      <a
+        href="/"
+        itemprop="url"
+        class="site-header__logo-link">
+        <img
+          class="small--hide desktop_logo"
+          src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Logo_1_260x.png?v=1594043857"
+          srcset="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Logo_1_260x.png?v=1594043857 1x, //cdn.shopify.com/s/files/1/0275/6984/8381/files/Logo_1_260x@2x.png?v=1594043857 2x"
+          alt="Licorice.com"
+          itemprop="logo">
+        <img
+          class="medium-up--hide mobile_logo"
+          src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Logo_1_150x.png?v=1594043857"
+          srcset="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Logo_1_150x.png?v=1594043857 1x, //cdn.shopify.com/s/files/1/0275/6984/8381/files/Logo_1_150x@2x.png?v=1594043857 2x"
+          alt="Licorice.com">
+      </a>
+      
+    
+    
+      </div>
+    
+
+  
+
+  
+
+  
+
+  
+
+
+
+
+              </div>
+              <div class="header-item header-item--navigation">
+                
+
+<ul
+class="site-nav site-navigation small--hide"
+
+  role="navigation" aria-label="Primary"
+>
+  
+
+
+    <li
+      class="site-nav__item site-nav__expanded-item site-nav--has-dropdown site-nav--is-megamenu is-oddit_mega"
+      aria-haspopup="true">
+
+      <a href="/collections/all" class="site-nav__link site-nav__link--underline site-nav__link--has-dropdown">
+        Products
+        
+          <svg width="6px" height="5px" viewBox="0 0 6 5" version="1.1"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <g id="Nav" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+              <g id="licorice-dropdown-desktop" transform="translate(-499.000000, -71.000000)" fill="currentColor">
+                <polygon id="Triangle-Copy-3" transform="translate(502.000000, 73.500000) scale(1, -1) translate(-502.000000, -73.500000) " points="502 71 505 76 499 76"></polygon>
+              </g>
+            </g>
+          </svg>
+        
+      </a>
+      
+<div class="site-nav__dropdown megamenu text-left  oddit-mega ">
+            
+            <div class="oddit-mega_container">
+              <div class="oddit-mega_content-container">
+                  <div class="oddit-mega_heading">Our Products</div>
+                  <div class="oddit-mega_content">Choose from 50+ premium licorice products from around the world.</div>
+                </div>
+                <style>
+                  .oddit-mega_container .oddit-mega_links {
+                    display:grid;
+                    grid-template-columns: repeat(2,1fr);
+                  }
+                  .oddit-mega_container .oddit-mega_links .oddit-mega_link {
+                    width: 170px;
+                  }
+                  *{}
+                </style>
+                
+                <div class="oddit-mega_links">
+                  
+                  
+                    <div class="oddit-mega_link">
+                      <a href="/collections/all">
+                        <div class="mega-menu_image-container">
+                          
+                          
+                            <img src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Licorice0003_1800x1800_7a69d976-cd6e-404d-9659-c3724fa3935a_340x@2x.png?v=1631221420" alt="Licorice.com">
+                          
+                        </div>
+                        <span class="btn--oddit btn--primary">Shop All 50+ Flavors</span>
+                      </a>
+                    </div>
+                  
+                    <div class="oddit-mega_link">
+                      <a href="/collections/best-sellers">
+                        <div class="mega-menu_image-container">
+                          
+                          
+                            <img src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Licorice_340x@2x.png?v=1631221455" alt="Licorice.com">
+                          
+                        </div>
+                        <span class="btn--oddit btn--primary">Shop Our Best Bundles</span>
+                      </a>
+                    </div>
+                  
+                </div>
+            
+          </div>
+        </div>
+      
+    </li>
+  
+
+
+    <li
+      class="site-nav__item site-nav__expanded-item site-nav--has-dropdown "
+      aria-haspopup="true">
+
+      <a href="/pages/send-gift" class="site-nav__link site-nav__link--underline site-nav__link--has-dropdown">
+        Gift Licorice
+        
+          <svg width="6px" height="5px" viewBox="0 0 6 5" version="1.1"
+            xmlns="http://www.w3.org/2000/svg"
+            xmlns:xlink="http://www.w3.org/1999/xlink">
+            <g id="Nav" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+              <g id="licorice-dropdown-desktop" transform="translate(-499.000000, -71.000000)" fill="currentColor">
+                <polygon id="Triangle-Copy-3" transform="translate(502.000000, 73.500000) scale(1, -1) translate(-502.000000, -73.500000) " points="502 71 505 76 499 76"></polygon>
+              </g>
+            </g>
+          </svg>
+        
+      </a>
+      
+        <ul class="site-nav__dropdown text-left">
+          
+
+
+            <li class="">
+              <a href="https://licorice.com/collections/create-your-own-licorice-box/products/create-your-own?variant=32066982477885&ose=false" class="site-nav__dropdown-link site-nav__dropdown-link--second-level ">
+                Create Your Gift
+                
+              </a>
+              
+            </li>
+          
+
+
+            <li class="">
+              <a href="/collections/licorice-gift-sets" class="site-nav__dropdown-link site-nav__dropdown-link--second-level ">
+                Best Gift Boxes
+                
+              </a>
+              
+            </li>
+          
+
+
+            <li class="">
+              <a href="/products/giftcard" class="site-nav__dropdown-link site-nav__dropdown-link--second-level ">
+                Gift Cards
+                
+              </a>
+              
+            </li>
+          
+        </ul>
+      
+    </li>
+  
+
+
+    <li
+      class="site-nav__item site-nav__expanded-item "
+      >
+
+      <a href="/collections/mothers-day-gift-boxes" class="site-nav__link site-nav__link--underline">
+        Mother's Day Gift Boxes
+        
+      </a>
+      
+      
+    </li>
+  
+
+
+    <li
+      class="site-nav__item site-nav__expanded-item "
+      >
+
+      <a href="/collections/sampler-packs" class="site-nav__link site-nav__link--underline">
+        Sampler Packs
+        
+      </a>
+      
+      
+    </li>
+  
+
+
+    <li
+      class="site-nav__item site-nav__expanded-item "
+      >
+
+      <a href="/pages/corporate-gifts-and-events-page" class="site-nav__link site-nav__link--underline">
+        Custom Gifts & Events
+        
+      </a>
+      
+      
+    </li>
+  
+</ul>
+
+
+
+              </div>
+              <div class="nav-button_container">
+                
+                    <a href="/collections/all" class="btn--oddit btn--secondary">
+                      Shop Now
+                    </a>
+                
+                <div class="header-item header-item--icons">
+                  <div class="site-nav">
+  <div class="site-nav__icons">
+    
+      <a class="site-nav__link site-nav__link--icon small--hide account-icon" href="/account" >
+
+        <svg width="24px" height="24px" viewBox="0 0 16 16" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+          <defs>
+              <path d="M12,5.9 C13.16,5.9 14.1,6.84 14.1,8 C14.1,9.16 13.16,10.1 12,10.1 C10.84,10.1 9.9,9.16 9.9,8 C9.9,6.84 10.84,5.9 12,5.9 L12,5.9 Z M12,14.9 C14.97,14.9 18.1,16.36 18.1,17 L18.1,18.1 L5.9,18.1 L5.9,17 C5.9,16.36 9.03,14.9 12,14.9 L12,14.9 Z M12,4 C9.79,4 8,5.79 8,8 C8,10.21 9.79,12 12,12 C14.21,12 16,10.21 16,8 C16,5.79 14.21,4 12,4 L12,4 Z M12,13 C9.33,13 4,14.34 4,17 L4,20 L20,20 L20,17 C20,14.34 14.67,13 12,13 L12,13 Z" id="path-1"></path>
+          </defs>
+          <g id="Home" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+              <g transform="translate(-921.000000, -62.000000)">
+                  <g transform="translate(917.000000, 58.000000)">
+                      <mask id="mask-2" fill="currenyColor">
+                          <use xlink:href="#path-1"></use>
+                      </mask>
+                      <use id="Mask" fill="currentColor" xlink:href="#path-1"></use>
+                  </g>
+              </g>
+          </g>
+      </svg>
+      </a>
+    
+
+    
+
+    
+
+    <a href="/cart" class="site-nav__link site-nav__link--icon js-drawer-open-cart js-no-transition cart-icon" aria-controls="LicoriceCartDrawer">
+      <span class="cart-link">
+        
+          <svg width="24px" height="24px" viewBox="0 0 18 18" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+            <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+              <g transform="translate(-973.000000, -61.000000)" stroke="#E3DCDC" stroke-width="2">
+                <g transform="translate(970.000000, 58.000000)">
+                  <path d="M17.6069985,9 L19.7828226,20 L4.21717735,20 L6.39300153,9 L17.6069985,9 Z" id="Rectangle"></path>
+                  <path d="M8,8 L8,7.73367691 C8,5.67162409 9.67162409,4 11.7336769,4 C13.7957297,4 15.4673538,5.67162409 15.4673538,7.73367691 L15.4673538,8 L15.4673538,8" id="Path-2"></path>
+                </g>
+              </g>
+            </g>
+          </svg>
+        
+        <span class="icon__fallback-text">Cart</span>
+        <span class="cart-link__bubble cart-link__bubble--visible"><span class="total-cart-amt"></span></span>
+      </span>
+    </a>
+  </div>
+</div>
+
+                </div>
+              </div>
+            
+        </div>
+        
+        <div class="site-header__search-container">
+          <div class="site-header__search">
+            <div class="page-width">
+              <form action="/search" method="get" role="search"
+                id="HeaderSearchForm"
+                class="site-header__search-form">
+                <input type="hidden" name="type" value="product">
+                <button type="submit" class="text-link site-header__search-btn site-header__search-btn--submit">
+                  <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-search" viewBox="0 0 64 64"><path d="M47.16 28.58A18.58 18.58 0 1 1 28.58 10a18.58 18.58 0 0 1 18.58 18.58zM54 54L41.94 42"/></svg>
+                  <span class="icon__fallback-text">Search</span>
+                </button>
+                <input type="search" name="q" value="" placeholder="Search our store" class="site-header__search-input" aria-label="Search our store">
+              </form>
+              <button type="button" class="js-search-header-close text-link site-header__search-btn">
+                <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64"><path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"/></svg>
+                <span class="icon__fallback-text">"Close (esc)"</span>
+              </button>
+            </div>
+          </div><div class="predictive-results hide">
+              <div class="page-width">
+                <div id="PredictiveResults"></div>
+                <div class="text-center predictive-results__footer">
+                  <button type="button" class="btn btn--small" data-predictive-search-button>
+                    <small>
+                      View more
+                    </small>
+                  </button>
+                </div>
+              </div>
+            </div></div>
+        
+        
+
+<div id="NavDrawer" class="drawer drawer--left drawer--oddit">
+  <div class="drawer__fixed-header drawer__fixed-header--full">
+    <div class="drawer__header drawer__header--full appear-animation appear-delay-1">
+      <div class="h2 drawer__title">
+        
+
+      </div>
+      <div class="drawer__close">
+        <button type="button" class="drawer__close-button js-drawer-close">
+          <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64"><path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"/></svg>
+          <span class="icon__fallback-text">Close menu</span>
+        </button>
+      </div>
+    </div>
+  </div>
+  <div class="drawer__inner">
+
+    <ul class="mobile-nav" role="navigation" aria-label="Primary">
+      
+
+
+        <li class="mobile-nav__item appear-animation appear-delay-2">
+          
+            <div class="mobile-nav__has-sublist">
+              
+                <a href="/collections/all"
+                  class="mobile-nav__link mobile-nav__link--top-level"
+                  id="Label-collections-all1"
+                  >
+                  Products
+                </a>
+                <div class="mobile-nav__toggle">
+                  <button type="button"
+                    aria-controls="Linklist-collections-all1"
+                    
+                    class="collapsible-trigger collapsible--auto-height ">
+                    
+                      <span class="collapsible-trigger__icon collapsible-trigger__icon--open" role="presentation"></span>
+                      <svg class="oddit-chevron" width="10px" height="10px" viewBox="0 0 8 7" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                          <g transform="translate(-347.000000, -135.000000)" fill="#000000">
+                            <polygon transform="translate(351.000000, 138.500000) scale(1, -1) translate(-351.000000, -138.500000) " points="351 135 355 142 347 142"></polygon>
+                          </g>
+                        </g>
+                      </svg>
+                    </span>
+                    
+                  </button>
+                </div>
+              
+            </div>
+          
+
+          
+            <div id="Linklist-collections-all1"
+              class="mobile-nav__sublist collapsible-content collapsible-content--all "
+              aria-labelledby="Label-collections-all1"
+              >
+              <div class="collapsible-content__inner">
+                <ul class="mobile-nav__sublist">
+                  
+
+
+                    <li class="mobile-nav__item">
+                      <div class="mobile-nav__child-item">
+                        
+                          <a href="/collections/all"
+                            class="mobile-nav__link"
+                            id="Sublabel-collections-all1"
+                            >
+                            Shop All 50+ Flavors
+                          </a>
+                        
+                        
+                      </div>
+
+                      
+                    </li>
+                  
+
+
+                    <li class="mobile-nav__item">
+                      <div class="mobile-nav__child-item">
+                        
+                          <a href="/collections/best-sellers"
+                            class="mobile-nav__link"
+                            id="Sublabel-collections-best-sellers2"
+                            >
+                            Shop Our Best Bundles
+                          </a>
+                        
+                        
+                      </div>
+
+                      
+                    </li>
+                  
+                </ul>
+              </div>
+            </div>
+          
+        </li>
+      
+
+
+        <li class="mobile-nav__item appear-animation appear-delay-3">
+          
+            <div class="mobile-nav__has-sublist">
+              
+                <a href="/pages/send-gift"
+                  class="mobile-nav__link mobile-nav__link--top-level"
+                  id="Label-pages-send-gift2"
+                  >
+                  Gift Licorice
+                </a>
+                <div class="mobile-nav__toggle">
+                  <button type="button"
+                    aria-controls="Linklist-pages-send-gift2"
+                    
+                    class="collapsible-trigger collapsible--auto-height ">
+                    
+                      <span class="collapsible-trigger__icon collapsible-trigger__icon--open" role="presentation"></span>
+                      <svg class="oddit-chevron" width="10px" height="10px" viewBox="0 0 8 7" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+                        <g stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+                          <g transform="translate(-347.000000, -135.000000)" fill="#000000">
+                            <polygon transform="translate(351.000000, 138.500000) scale(1, -1) translate(-351.000000, -138.500000) " points="351 135 355 142 347 142"></polygon>
+                          </g>
+                        </g>
+                      </svg>
+                    </span>
+                    
+                  </button>
+                </div>
+              
+            </div>
+          
+
+          
+            <div id="Linklist-pages-send-gift2"
+              class="mobile-nav__sublist collapsible-content collapsible-content--all "
+              aria-labelledby="Label-pages-send-gift2"
+              >
+              <div class="collapsible-content__inner">
+                <ul class="mobile-nav__sublist">
+                  
+
+
+                    <li class="mobile-nav__item">
+                      <div class="mobile-nav__child-item">
+                        
+                          <a href="https://licorice.com/collections/create-your-own-licorice-box/products/create-your-own?variant=32066982477885&ose=false"
+                            class="mobile-nav__link"
+                            id="Sublabel-https-licorice-com-collections-create-your-own-licorice-box-products-create-your-own-variant-32066982477885-ose-false1"
+                            >
+                            Create Your Gift
+                          </a>
+                        
+                        
+                      </div>
+
+                      
+                    </li>
+                  
+
+
+                    <li class="mobile-nav__item">
+                      <div class="mobile-nav__child-item">
+                        
+                          <a href="/collections/licorice-gift-sets"
+                            class="mobile-nav__link"
+                            id="Sublabel-collections-licorice-gift-sets2"
+                            >
+                            Best Gift Boxes
+                          </a>
+                        
+                        
+                      </div>
+
+                      
+                    </li>
+                  
+
+
+                    <li class="mobile-nav__item">
+                      <div class="mobile-nav__child-item">
+                        
+                          <a href="/products/giftcard"
+                            class="mobile-nav__link"
+                            id="Sublabel-products-giftcard3"
+                            >
+                            Gift Cards
+                          </a>
+                        
+                        
+                      </div>
+
+                      
+                    </li>
+                  
+                </ul>
+              </div>
+            </div>
+          
+        </li>
+      
+
+
+        <li class="mobile-nav__item appear-animation appear-delay-4">
+          
+            <a href="/collections/mothers-day-gift-boxes" class="mobile-nav__link mobile-nav__link--top-level" >Mother's Day Gift Boxes</a>
+          
+
+          
+        </li>
+      
+
+
+        <li class="mobile-nav__item appear-animation appear-delay-5">
+          
+            <a href="/collections/sampler-packs" class="mobile-nav__link mobile-nav__link--top-level" >Sampler Packs</a>
+          
+
+          
+        </li>
+      
+
+
+        <li class="mobile-nav__item appear-animation appear-delay-6">
+          
+            <a href="/pages/corporate-gifts-and-events-page" class="mobile-nav__link mobile-nav__link--top-level" >Custom Gifts & Events</a>
+          
+
+          
+        </li>
+      
+
+
+      
+        <li class="mobile-nav__item mobile-nav__item--secondary appear-animation appear-delay-6">
+          <div class="grid">
+            
+              
+<div class="grid__item one-half appear-animation appear-delay-7">
+                  <a href="https://Pretzels.com" class="mobile-nav__link">Try Pretzels.com</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-8">
+                  <a href="/pages/faq" class="mobile-nav__link">FAQ/Help</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-9">
+                  <a href="/pages/about" class="mobile-nav__link">About Us</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-10">
+                  <a href="/pages/reviews" class="mobile-nav__link">Reviews</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-11">
+                  <a href="/pages/wholesale" class="mobile-nav__link">Wholesale</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-12">
+                  <a href="/account" class="mobile-nav__link">Account</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-13">
+                  <a href="/search" class="mobile-nav__link">Search</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-14">
+                  <a href="/blogs/news" class="mobile-nav__link">Blog</a>
+                </div>
+              
+<div class="grid__item one-half appear-animation appear-delay-15">
+                  <a href="/pages/share" class="mobile-nav__link">Refer a Friend</a>
+                </div>
+              
+            
+
+            
+          </div>
+        </li>
+      
+    </ul><div class="oddit-mobile_options appear-animation appear-delay-16">
+      
+        <div class="oddit-mobile_annoucement">
+          Spend $100 and Receive A $25 Gift Card FREE!
+        </div>
+      
+      
+        <div class="oddit-button_container">
+          <a href="/collections/all" class="btn--oddit btn--primary">Shop All 50+ Flavors</a>
+        </div>
+      
+    </div><ul class="mobile-nav__social appear-animation appear-delay-17">
+      
+        <li class="mobile-nav__social-item">
+          <a target="_blank" href="https://www.instagram.com/licoricedotcom/" title="Licorice.com on Instagram">
+            <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-instagram" viewBox="0 0 32 32"><path fill="#444" d="M16 3.094c4.206 0 4.7.019 6.363.094 1.538.069 2.369.325 2.925.544.738.287 1.262.625 1.813 1.175s.894 1.075 1.175 1.813c.212.556.475 1.387.544 2.925.075 1.662.094 2.156.094 6.363s-.019 4.7-.094 6.363c-.069 1.538-.325 2.369-.544 2.925-.288.738-.625 1.262-1.175 1.813s-1.075.894-1.813 1.175c-.556.212-1.387.475-2.925.544-1.663.075-2.156.094-6.363.094s-4.7-.019-6.363-.094c-1.537-.069-2.369-.325-2.925-.544-.737-.288-1.263-.625-1.813-1.175s-.894-1.075-1.175-1.813c-.212-.556-.475-1.387-.544-2.925-.075-1.663-.094-2.156-.094-6.363s.019-4.7.094-6.363c.069-1.537.325-2.369.544-2.925.287-.737.625-1.263 1.175-1.813s1.075-.894 1.813-1.175c.556-.212 1.388-.475 2.925-.544 1.662-.081 2.156-.094 6.363-.094zm0-2.838c-4.275 0-4.813.019-6.494.094-1.675.075-2.819.344-3.819.731-1.037.4-1.913.944-2.788 1.819S1.486 4.656 1.08 5.688c-.387 1-.656 2.144-.731 3.825-.075 1.675-.094 2.213-.094 6.488s.019 4.813.094 6.494c.075 1.675.344 2.819.731 3.825.4 1.038.944 1.913 1.819 2.788s1.756 1.413 2.788 1.819c1 .387 2.144.656 3.825.731s2.213.094 6.494.094 4.813-.019 6.494-.094c1.675-.075 2.819-.344 3.825-.731 1.038-.4 1.913-.944 2.788-1.819s1.413-1.756 1.819-2.788c.387-1 .656-2.144.731-3.825s.094-2.212.094-6.494-.019-4.813-.094-6.494c-.075-1.675-.344-2.819-.731-3.825-.4-1.038-.944-1.913-1.819-2.788s-1.756-1.413-2.788-1.819c-1-.387-2.144-.656-3.825-.731C20.812.275 20.275.256 16 .256z"/><path fill="#444" d="M16 7.912a8.088 8.088 0 0 0 0 16.175c4.463 0 8.087-3.625 8.087-8.088s-3.625-8.088-8.088-8.088zm0 13.338a5.25 5.25 0 1 1 0-10.5 5.25 5.25 0 1 1 0 10.5zM26.294 7.594a1.887 1.887 0 1 1-3.774.002 1.887 1.887 0 0 1 3.774-.003z"/></svg>
+            <span class="icon__fallback-text">Instagram</span>
+          </a>
+        </li>
+      
+      
+        <li class="mobile-nav__social-item">
+          <a target="_blank" href="https://www.facebook.com/licoricedotcom/" title="Licorice.com on Facebook">
+            <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-facebook" viewBox="0 0 32 32"><path fill="#444" d="M18.56 31.36V17.28h4.48l.64-5.12h-5.12v-3.2c0-1.28.64-2.56 2.56-2.56h2.56V1.28H19.2c-3.84 0-7.04 2.56-7.04 7.04v3.84H7.68v5.12h4.48v14.08h6.4z"/></svg>
+            <span class="icon__fallback-text">Facebook</span>
+          </a>
+        </li>
+      
+      
+      
+      
+        <li class="mobile-nav__social-item">
+          <a target="_blank" href="https://www.pinterest.com/shopify" title="Licorice.com on Pinterest">
+            <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-pinterest" viewBox="0 0 32 32"><path fill="#444" d="M27.52 9.6c-.64-5.76-6.4-8.32-12.8-7.68-4.48.64-9.6 4.48-9.6 10.24 0 3.2.64 5.76 3.84 6.4 1.28-2.56-.64-3.2-.64-4.48-1.28-7.04 8.32-12.16 13.44-7.04 3.2 3.84 1.28 14.08-4.48 13.44-5.12-1.28 2.56-9.6-1.92-11.52-3.2-1.28-5.12 4.48-3.84 7.04-1.28 4.48-3.2 8.96-1.92 15.36 2.56-1.92 3.84-5.76 4.48-9.6 1.28.64 1.92 1.92 3.84 1.92 6.4-.64 10.24-7.68 9.6-14.08z"/></svg>
+            <span class="icon__fallback-text">Pinterest</span>
+          </a>
+        </li>
+      
+      
+      
+      
+      
+    </ul>
+
+  </div>
+</div>
+
+      
+      </header>
+      
+    </div>
+  </div>
+
+  
+  
+
+
+  <div class="ticker-bar">
+
+    <div class="page-width">
+    
+       
+        
+        
+          
+        
+        
+        
+            <a class="ticker-link" href="https://www.pretzels.com/">
+        
+          
+        
+            </a>
+        
+        
+        
+          
+        
+        
+        
+            <a class="ticker-link" href="/collections/all">
+        
+          
+           <p>Order Today - Arrives in 3 Business Days.         Free $25 Gift Card With Orders Over $100!</p>
+          
+        
+            </a>
+        
+        
+      
+    </div>
+  </div>
+
+
+
+</div>
+
+<style>
+  a.site-nav__dropdown-link.site-nav__dropdown-link--second-level:hover {
+  color: #F30C21;
+  background: white;
+  }
+  a.site-nav__dropdown-link.site-nav__dropdown-link--second-level {
+    background: #F7F7F7;
+  }
+  ul.site-nav__dropdown.text-left {
+    padding-top: 0;
+    padding-bottom: 5px;
+    background: #F30C21;
+  }
+  ul.site-nav.site-navigation.small--hide {
+    top: 17%;
+    position: relative;
+  }
+  .header-item.header-item--icons.header-item--icons2 {
+  flex: 0 1 130px !important;
+}
+</style>
+
+</div>
+
+      <main class="main-content" id="MainContent">
+        <div id="shopify-section-product-template" class="shopify-section"><div id="ProductSection-4829850632253"
+  class="product-section"
+  data-section-id="4829850632253"
+  data-section-type="product-template"
+  data-product-handle="half-n-half"
+  data-product-url="/products/half-n-half"
+  data-aspect-ratio="70.19950124688279"
+  data-img-url="//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_{width}x.png?v=1634862514"
+  
+    data-image-zoom="true"
+  
+  
+  
+  
+    data-enable-history-state="true"
+  
+  >
+
+<script type="application/ld+json">
+  {
+    "@context": "http://schema.org",
+    "@type": "Product",
+    "offers": {
+      "@type": "Offer",
+      "availability":"https://schema.org/OutOfStock",
+      "price": "15.0",
+      "priceCurrency": "USD",
+      "priceValidUntil": "2022-05-02",
+      "url": "https://licorice.com/products/half-n-half"
+    },
+    "brand": "Licorice.com",
+    "sku": "L_H_N_H",
+    "name": "Half n' Half",
+    "description": "This Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.\nEach tube is filled with 1 pound. ",
+    "category": "",
+    "url": "https://licorice.com/products/half-n-half",
+      "mpn": "L_H_N_H",
+      "productId": "L_H_N_H",
+    "image": {
+      "@type": "ImageObject",
+      "url": "https://cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_1024x1024.png?v=1634862514",
+      "image": "https://cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_1024x1024.png?v=1634862514",
+      "name": "Half n' Half",
+      "width": 1024,
+      "height": 1024
+    }
+  }
+</script>
+<div class="page-content page-content--product">
+    <div class="page-width">
+
+      <div class="grid"><div class="rebuy-attach-1 grid__item medium-up--two-fifths oddit-product-images">
+            <div
+    data-product-images
+    data-zoom="true"
+    data-has-slideshow="true">
+    <div class="product__photos product__photos-4829850632253 product__photos--below">
+      
+<div class="product-meta_image" data-aos="">
+          <img
+              class="lazyload image-fit"
+              data-src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/Asset_3Fresh_{width}x.png?v=1649785583"
+              data-aspectratio="1.1355932203389831"
+              data-sizes="auto"
+              data-parent-fit="cover"
+              src="" alt="made fresh"
+          />
+        </div>
+      
+      <div class="product__main-photos" data-aos>
+        <div id="ProductPhotos-4829850632253"><div class="starting-slide" data-index="0">
+              <div class="product-image-main product-image-main--4829850632253">
+                <div class="image-wrap
+                  
+                  
+                  " style="height: 0; padding-bottom: 70.19950124688279%;"><img class="photoswipe__image lazyload"
+                      data-photoswipe-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_1800x1800.png?v=1634862514"
+                      data-photoswipe-width="802"
+                      data-photoswipe-height="563"
+                      data-index="1"
+                      data-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_{width}x.png?v=1634862514"
+                      data-widths="[360, 540, 720, 900, 1080]"
+                      data-aspectratio="1.4245115452930728"
+                      data-sizes="auto"
+                      alt="Half n&#39; Half">
+                    <noscript>
+                      <img class="lazyloaded" src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_480x.png?v=1634862514" alt="Half n&#39; Half">
+                    </noscript><button type="button" class="btn btn--body btn--circle js-photoswipe__zoom product__photo-zoom">
+                      <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-search" viewBox="0 0 64 64"><path d="M47.16 28.58A18.58 18.58 0 1 1 28.58 10a18.58 18.58 0 0 1 18.58 18.58zM54 54L41.94 42"/></svg>
+                      <span class="icon__fallback-text">Close (esc)</span>
+                    </button></div></div>
+            </div><div class="secondary-slide" data-index="1">
+              <div class="product-image-main product-image-main--4829850632253">
+                <div class="image-wrap
+                  
+                  
+                  " style="height: 0; padding-bottom: 66.66666666666667%;"><img class="photoswipe__image lazyload"
+                      data-photoswipe-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068_1800x1800.jpg?v=1607108492"
+                      data-photoswipe-width="1500"
+                      data-photoswipe-height="1000"
+                      data-index="2"
+                      data-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068_{width}x.jpg?v=1607108492"
+                      data-widths="[360, 540, 720, 900, 1080]"
+                      data-aspectratio="1.5"
+                      data-sizes="auto"
+                      alt="Half n&#39; Half - Licorice.com">
+                    <noscript>
+                      <img class="lazyloaded" src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068_480x.jpg?v=1607108492" alt="Half n&#39; Half - Licorice.com">
+                    </noscript><button type="button" class="btn btn--body btn--circle js-photoswipe__zoom product__photo-zoom">
+                      <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-search" viewBox="0 0 64 64"><path d="M47.16 28.58A18.58 18.58 0 1 1 28.58 10a18.58 18.58 0 0 1 18.58 18.58zM54 54L41.94 42"/></svg>
+                      <span class="icon__fallback-text">Close (esc)</span>
+                    </button></div></div>
+            </div><div class="secondary-slide" data-index="2">
+              <div class="product-image-main product-image-main--4829850632253">
+                <div class="image-wrap
+                  
+                  
+                  " style="height: 0; padding-bottom: 89.12259615384615%;"><img class="photoswipe__image lazyload"
+                      data-photoswipe-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51_1800x1800.jpg?v=1607108505"
+                      data-photoswipe-width="1664"
+                      data-photoswipe-height="1483"
+                      data-index="3"
+                      data-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51_{width}x.jpg?v=1607108505"
+                      data-widths="[360, 540, 720, 900, 1080]"
+                      data-aspectratio="1.122049898853675"
+                      data-sizes="auto"
+                      alt="Half n&#39; Half - Licorice.com">
+                    <noscript>
+                      <img class="lazyloaded" src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51_480x.jpg?v=1607108505" alt="Half n&#39; Half - Licorice.com">
+                    </noscript><button type="button" class="btn btn--body btn--circle js-photoswipe__zoom product__photo-zoom">
+                      <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-search" viewBox="0 0 64 64"><path d="M47.16 28.58A18.58 18.58 0 1 1 28.58 10a18.58 18.58 0 0 1 18.58 18.58zM54 54L41.94 42"/></svg>
+                      <span class="icon__fallback-text">Close (esc)</span>
+                    </button></div></div>
+            </div></div>
+      </div>
+
+      <div
+        id="ProductThumbs-4829850632253"
+        class="product__thumbs product__thumbs--below product__thumbs-placement--left  small--hide"
+        data-position="below"
+        data-arrows="false"
+        data-aos><div class="product__thumb-item"
+              data-index="0">
+              <div class="image-wrap" style="height: 0; padding-bottom: 100%;">
+                <div
+                  class="product__thumb product__thumb-4829850632253 js-no-transition"
+                  data-id="28414984912957"><img class="animation-delay-3 lazyload"
+                      data-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_{width}x.png?v=1634862514"
+                      data-widths="[360, 540, 720, 900, 1080]"
+                      data-aspectratio="1.4245115452930728"
+                      data-sizes="auto"
+                      alt="Half n&#39; Half">
+                  <noscript>
+                    <img class="lazyloaded" src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_180x.png?v=1634862514" alt="Half n&#39; Half">
+                  </noscript>
+                </div>
+              </div>
+            </div><div class="product__thumb-item"
+              data-index="1">
+              <div class="image-wrap" style="height: 0; padding-bottom: 100%;">
+                <div
+                  class="product__thumb product__thumb-4829850632253 js-no-transition"
+                  data-id="16574599659581"><img class="animation-delay-6 lazyload"
+                      data-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068_{width}x.jpg?v=1607108492"
+                      data-widths="[360, 540, 720, 900, 1080]"
+                      data-aspectratio="1.5"
+                      data-sizes="auto"
+                      alt="Half n&#39; Half - Licorice.com">
+                  <noscript>
+                    <img class="lazyloaded" src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Licorice0068_180x.jpg?v=1607108492" alt="Half n&#39; Half - Licorice.com">
+                  </noscript>
+                </div>
+              </div>
+            </div><div class="product__thumb-item"
+              data-index="2">
+              <div class="image-wrap" style="height: 0; padding-bottom: 100%;">
+                <div
+                  class="product__thumb product__thumb-4829850632253 js-no-transition"
+                  data-id="16574599626813"><img class="animation-delay-9 lazyload"
+                      data-src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51_{width}x.jpg?v=1607108505"
+                      data-widths="[360, 540, 720, 900, 1080]"
+                      data-aspectratio="1.122049898853675"
+                      data-sizes="auto"
+                      alt="Half n&#39; Half - Licorice.com">
+                  <noscript>
+                    <img class="lazyloaded" src="//cdn.shopify.com/s/files/1/0275/6984/8381/products/Products_with_single_tube_51_180x.jpg?v=1607108505" alt="Half n&#39; Half - Licorice.com">
+                  </noscript>
+                </div>
+              </div>
+            </div></div>
+    </div>
+  </div>
+          </div><div class="grid__item medium-up--three-fifths oddit-product-meta">
+
+          <div class="rebuy-attach-2 product-single__meta">
+              <div class="small--hide"></div>
+              <!-- Yotpo Star rating on product pages -->
+              <div class="yotpo bottomLine"
+              data-product-id="4829850632253">
+              </div>
+              <!-- End of Yotpo Star rating on product pages --><h1 class="h3 product-single__title">
+                Half n' Half
+              </h1>
+              <span id="PriceA11y-4829850632253" class="visually-hidden">Regular price</span><span id="ProductPrice-4829850632253"
+              class="product__price oddit-price">
+              $15.00
+              
+            </span>
+            
+            <div id="afterpay-container"></div><div class="product__unit-price product__unit-price--spacing product__unit-price-wrapper--4829850632253 hide"><span class="product__unit-price--4829850632253"></span>/<span class="product__unit-base--4829850632253"></span>
+            </div><div class="product-single__description rte">
+                <p class="p1" data-mce-fragment="1">This Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.</p>
+<p class="p1" data-mce-fragment="1"><span>Each tube is filled with 1 pound. </span></p>
+              </div>
+              
+<form method="post" action="/cart/add" id="AddToCartForm-4829850632253" accept-charset="UTF-8" class="product-single__form" enctype="multipart/form-data" data-productid="4829850632253"><input type="hidden" name="form_type" value="product" /><input type="hidden" name="utf8" value="✓" />
+
+    <!-- Half n' Half -->
+  
+  <style>
+    .available {
+      display: initial;
+    }
+    .unavailable {
+      display: none;
+    }
+    input[type="radio"]:focus + label .checked-radio-button {
+      display: flex;
+    }
+    :not(input[type="radio"]:focus) + label .checked-radio-button {
+      display: none;
+    }
+    input[type="radio"]:active + label .checked-radio-button {
+      display: flex;
+    }
+    :not(input[type="radio"]:active) + label .checked-radio-button {
+      display: none;
+    }
+    input[type="radio"]:checked + label .checked-radio-button {
+      display: flex;
+    }
+    :not(input[type="radio"]:checked) + label .checked-radio-button {
+      display: none;
+    }
+
+    input[type="radio"]:focus + label .unchecked-radio-button {
+      display: none;
+    }
+    :not(input[type="radio"]:focus) + label .unchecked-radio-button {
+      display: flex;
+    }
+    input[type="radio"]:active + label .unchecked-radio-button {
+      display: none;
+    }
+    :not(input[type="radio"]:active) + label .unchecked-radio-button {
+      display: flex;
+    }
+    input[type="radio"]:checked + label .unchecked-radio-button {
+      display: none;
+    }
+    :not(input[type="radio"]:checked) + label .unchecked-radio-button {
+      display: flex;
+    }
+  </style>
+  
+  <fieldset class="skio-plan-picker" style="display: none;padding: 0;border: none;margin-bottom: 40px;margin-top: 10px">
+    <input type="hidden" name="selling_plan" value="" />
+    
+      <div name="skio-one-time">
+         <div style="display: flex;align-items: center">
+          <input style="display: none" id="one-time" name="skio-subscription-value" type="radio" value="">
+          <label for="one-time" style="display: flex;align-items: center; cursor: pointer;">
+            <span class="unchecked-radio-button" style="margin-right: 10px; "><svg class="gUZ pBj U9O kVc" height="18" width="18" viewBox="0 0 24 24" aria-hidden="true" aria-label="" role="img"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm0 22.2C6.45 22.2 1.8 17.7 1.8 12 1.8 6.3 6.3 1.8 12 1.8c5.7 0 10.2 4.5 10.2 10.2 0 5.7-4.65 10.2-10.2 10.2z"></path></svg></span>
+            <span class="checked-radio-button" style="margin-right: 10px;"><svg class="gUZ pBj U9O kVc" height="18" width="18" viewBox="0 0 24 24" aria-hidden="true" aria-label="" role="img"><path d="M12 0a12 12 0 100 24 12 12 0 000-24zM6.37 11.61a1.25 1.25 0 011.76 0l2.37 2.36 5.37-5.35a1.25 1.25 0 011.76 1.76L10.5 17.5l-4.13-4.13a1.25 1.25 0 010-1.76z"></path></svg></span>
+            
+            <span class="one-time-price">One-time purchase: $15.00</span>
+          </label>
+        </div>
+      </div>
+    
+    
+      
+      
+      
+      
+      
+      <div name="skio-subscription">
+        <div style="display: flex;align-items: center; margin-top: 10px">
+          <input style="display: none" type="radio" id="a390b7263bf8a75eb86c8f8931ce45dde5f04a38" name="skio-subscription-value" value="a390b7263bf8a75eb86c8f8931ce45dde5f04a38">
+          <label for="a390b7263bf8a75eb86c8f8931ce45dde5f04a38" style="margin-bottom: 16px; display: flex;align-items: center;     cursor: pointer;">
+            <span class="unchecked-radio-button" style="margin-right: 10px; "><svg class="gUZ pBj U9O kVc" height="18" width="18" viewBox="0 0 24 24" aria-hidden="true" aria-label="" role="img"><path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.6 0 12 0zm0 22.2C6.45 22.2 1.8 17.7 1.8 12 1.8 6.3 6.3 1.8 12 1.8c5.7 0 10.2 4.5 10.2 10.2 0 5.7-4.65 10.2-10.2 10.2z"></path></svg></span>
+            <span class="checked-radio-button" style="margin-right: 10px; "><svg class="gUZ pBj U9O kVc" height="18" width="18" viewBox="0 0 24 24" aria-hidden="true" aria-label="" role="img"><path d="M12 0a12 12 0 100 24 12 12 0 000-24zM6.37 11.61a1.25 1.25 0 011.76 0l2.37 2.36 5.37-5.35a1.25 1.25 0 011.76 1.76L10.5 17.5l-4.13-4.13a1.25 1.25 0 010-1.76z"></path></svg></span>
+            
+            <span class="subscribe-price">Subscribe and save 10%: $13.50</span>
+          </label>
+        </div>
+        <div style="display: flex; margin-left: 27px; margin-bottom: 0px; align-items: center" data-skio-plan-options>
+          <div style="margin-right: 10px;">
+          Delivery
+          </div>
+          <select>
+            
+              <option value="447414333">Every 1 month</option>
+            
+              <option value="447447101">Every 2 months</option>
+            
+              <option value="447479869">Every 3 months</option>
+            
+          </select>
+        </div>
+      </div>
+    
+  </fieldset>
+  <script>
+    var product = {"id":4829850632253,"title":"Half n' Half","handle":"half-n-half","description":"\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003eThis Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.\u003c\/p\u003e\n\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003e\u003cspan\u003eEach tube is filled with 1 pound. \u003c\/span\u003e\u003c\/p\u003e","published_at":"2020-11-09T00:50:10-05:00","created_at":"2020-11-08T15:40:53-05:00","vendor":"Licorice.com","type":"Self-Consumption","tags":["candy"],"price":1500,"price_min":1500,"price_max":1500,"available":false,"price_varies":false,"compare_at_price":null,"compare_at_price_min":0,"compare_at_price_max":0,"compare_at_price_varies":false,"variants":[{"id":32942333853757,"title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"L_H_N_H","requires_shipping":true,"taxable":true,"featured_image":null,"available":false,"name":"Half n' Half","public_title":null,"options":["Default Title"],"price":1500,"weight":499,"compare_at_price":null,"inventory_management":"shopify","barcode":"L_H_N_H","requires_selling_plan":false,"selling_plan_allocations":[{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447414333,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447447101,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447479869,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"}]}],"images":["\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514","\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Licorice0068.jpg?v=1607108492","\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Products_with_single_tube_51.jpg?v=1607108505"],"featured_image":"\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514","options":["Title"],"media":[{"alt":null,"id":20676368236605,"position":1,"preview_image":{"aspect_ratio":1.425,"height":563,"width":802,"src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514"},"aspect_ratio":1.425,"height":563,"media_type":"image","src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514","width":802},{"alt":"Half n' Half - Licorice.com","id":8747752849469,"position":2,"preview_image":{"aspect_ratio":1.5,"height":1000,"width":1500,"src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Licorice0068.jpg?v=1607108492"},"aspect_ratio":1.5,"height":1000,"media_type":"image","src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Licorice0068.jpg?v=1607108492","width":1500},{"alt":"Half n' Half - Licorice.com","id":8747752882237,"position":3,"preview_image":{"aspect_ratio":1.122,"height":1483,"width":1664,"src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Products_with_single_tube_51.jpg?v=1607108505"},"aspect_ratio":1.122,"height":1483,"media_type":"image","src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Products_with_single_tube_51.jpg?v=1607108505","width":1664}],"requires_selling_plan":false,"selling_plan_groups":[{"id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38","name":"Subscription","options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"values":["Every 1 month","Every 2 months","Every 3 months"]}],"selling_plans":[{"id":447414333,"name":"Every 1 month","description":null,"options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"value":"Every 1 month"}],"recurring_deliveries":true,"price_adjustments":[{"order_count":null,"position":1,"value_type":"price","value":1350}]},{"id":447447101,"name":"Every 2 months","description":null,"options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"value":"Every 2 months"}],"recurring_deliveries":true,"price_adjustments":[{"order_count":null,"position":1,"value_type":"price","value":1350}]},{"id":447479869,"name":"Every 3 months","description":null,"options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"value":"Every 3 months"}],"recurring_deliveries":true,"price_adjustments":[{"order_count":null,"position":1,"value_type":"price","value":1350}]}],"app_id":null}],"content":"\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003eThis Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.\u003c\/p\u003e\n\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003e\u003cspan\u003eEach tube is filled with 1 pound. \u003c\/span\u003e\u003c\/p\u003e"};
+
+    var selling_plans_by_id = {};
+    product.selling_plan_groups.forEach(function (group) {
+      group.selling_plans.forEach(function (plan) {
+        selling_plans_by_id[plan.id] = plan;
+        selling_plans_by_id[plan.id].selling_plan_group_id = group.id;
+      })
+    });
+
+    var variants_by_id = {};
+    
+      
+      variants_by_id[32942333853757] = {"id":32942333853757,"title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"L_H_N_H","requires_shipping":true,"taxable":true,"featured_image":null,"available":false,"name":"Half n' Half","public_title":null,"options":["Default Title"],"price":1500,"weight":499,"compare_at_price":null,"inventory_management":"shopify","barcode":"L_H_N_H","requires_selling_plan":false,"selling_plan_allocations":[{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447414333,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447447101,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447479869,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"}]};
+      variants_by_id[32942333853757].price = "$15.00";
+      variants_by_id[32942333853757].group_ids = {};
+      variants_by_id[32942333853757].selling_plans = {};
+
+      
+        variants_by_id[32942333853757].group_ids["a390b7263bf8a75eb86c8f8931ce45dde5f04a38"] = true;
+        variants_by_id[32942333853757].selling_plans[447414333] = {};
+        variants_by_id[32942333853757].selling_plans[447414333].price = "$13.50";
+      
+        variants_by_id[32942333853757].group_ids["a390b7263bf8a75eb86c8f8931ce45dde5f04a38"] = true;
+        variants_by_id[32942333853757].selling_plans[447447101] = {};
+        variants_by_id[32942333853757].selling_plans[447447101].price = "$13.50";
+      
+        variants_by_id[32942333853757].group_ids["a390b7263bf8a75eb86c8f8931ce45dde5f04a38"] = true;
+        variants_by_id[32942333853757].selling_plans[447479869] = {};
+        variants_by_id[32942333853757].selling_plans[447479869].price = "$13.50";
+      
+    
+
+    product.selected_selling_plan = null;
+    product.selling_plans_by_id = selling_plans_by_id;
+    product.variants_by_id = variants_by_id;
+    
+    document.querySelector('.skio-plan-picker').dataset.product = JSON.stringify(product);
+  </script>
+
+
+  
+<!-- HC - Shop Pay Installments Banner - 07 Jul '21 -->
+<div class="hc-shop-pay-installments" style="margin: 0 0 10px;">
+  <shopify-payment-terms variant-id="32942333853757" shopify-meta="{&quot;type&quot;:&quot;product&quot;,&quot;variants&quot;:[{&quot;id&quot;:32942333853757,&quot;price&quot;:&quot;$3.75&quot;,&quot;eligible&quot;:false,&quot;available_loan_types&quot;:[]}],&quot;min_price&quot;:&quot;$50&quot;,&quot;max_price&quot;:&quot;$3000&quot;,&quot;number_of_payment_terms&quot;:4}"></shopify-payment-terms>
+</div>
+
+  
+
+  <select name="id" data-productid="4829850632253" id="ProductSelect-4829850632253" class="product-single__variants no-js">
+    
+      
+        <option disabled="disabled">
+          Default Title - Coming Back Soon
+        </option>
+      
+    
+  </select>
+
+
+  
+    <div class="product__quantity product__quantity--button">
+      <label for="Quantity-4829850632253">Quantity</label>
+      <div class="quantity-container">
+        <div class="js-qty__wrapper">
+  <input type="text" id="Quantity-4829850632253"
+    class="js-qty__num"
+    value="1"
+    min="1"
+    aria-label="quantity"
+    pattern="[0-9]*"
+    name="quantity">
+  <button type="button"
+    class="js-qty__adjust js-qty__adjust--minus"
+    aria-label="Reduce item quantity by one">
+      <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-minus" viewBox="0 0 20 20"><path fill="#444" d="M17.543 11.029H2.1A1.032 1.032 0 0 1 1.071 10c0-.566.463-1.029 1.029-1.029h15.443c.566 0 1.029.463 1.029 1.029 0 .566-.463 1.029-1.029 1.029z"/></svg>
+      <span class="icon__fallback-text" aria-hidden="true">&minus;</span>
+  </button>
+  <button type="button"
+    class="js-qty__adjust js-qty__adjust--plus"
+    aria-label="Increase item quantity by one">
+      <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-plus" viewBox="0 0 20 20"><path fill="#444" d="M17.409 8.929h-6.695V2.258c0-.566-.506-1.029-1.071-1.029s-1.071.463-1.071 1.029v6.671H1.967C1.401 8.929.938 9.435.938 10s.463 1.071 1.029 1.071h6.605V17.7c0 .566.506 1.029 1.071 1.029s1.071-.463 1.071-1.029v-6.629h6.695c.566 0 1.029-.506 1.029-1.071s-.463-1.071-1.029-1.071z"/></svg>
+      <span class="icon__fallback-text" aria-hidden="true">+</span>
+  </button>
+</div>
+
+        
+      </div>
+    </div>
+  
+<div
+    id="ProductInventory-4829850632253"
+    class="product__inventory hide"
+    >
+    
+  </div>
+
+  
+
+      <div id="gsAppContainer" class="gs__app-container"></div>
+    
+    <div id="stickyAtC" class="product-sticky-nav">
+      <button
+              type="button"
+              id="AddToCart-4829850632253"
+              class="btn--oddit btn--primary"
+               disabled="disabled">
+        <span id="AddToCartText-4829850632253">
+          
+          Coming Back Soon
+          
+        </span>
+      </button>
+    </div>
+
+    <div class="flex-grid product__action-buttons">
+        <button
+                type="button"
+                id="AddToCart-4829850632253"
+                class="btn--oddit btn--primary"
+         disabled="disabled">
+          <span id="AddToCartText-4829850632253">
+            
+                Coming Back Soon
+            
+          </span>
+        </button>
+    </div>
+
+    
+
+  
+
+   <!-- <hr class="hr--medium"> -->
+
+  <div id="VariantsJson-4829850632253" class="hide" aria-hidden="true">
+    [{"id":32942333853757,"title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"L_H_N_H","requires_shipping":true,"taxable":true,"featured_image":null,"available":false,"name":"Half n' Half","public_title":null,"options":["Default Title"],"price":1500,"weight":499,"compare_at_price":null,"inventory_management":"shopify","barcode":"L_H_N_H","requires_selling_plan":false,"selling_plan_allocations":[{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447414333,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447447101,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447479869,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"}]}]
+  </div>
+  
+</form>
+
+
+
+
+
+          </div>
+        </div></div></div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+<style>
+  #gsDatepickerRow {
+    display: none !important;
+  }
+</style>
+
+
+  
+
+
+
+
+  
+
+
+
+
+
+
+
+
+</div>
+
+
+
+
+<script>
+  // Override default values of shop.strings for each template.
+  // Alternate product templates can change values of
+  // add to cart button, sold out, and unavailable states here.
+  theme.productStrings = {
+    addToCart: "Add to bag",
+    soldOut: "Coming Back Soon",
+    unavailable: "Unavailable"
+  };
+</script>
+<div id="shopify-section-product-recommendations--oddit" class="shopify-section"><div class="related product-recommendations-container">
+  <div class="Container product-recommendations" data-product-id="4829850632253" data-limit="10">
+  </div>
+</div>
+
+<script>
+var loadProductRecommendationsIntoSection = function() {
+  var productRecommendationsSection = document.querySelector(".product-recommendations");
+  if (productRecommendationsSection === null) { return; }
+  var productId = productRecommendationsSection.dataset.productId;
+  var limit = productRecommendationsSection.dataset.limit;
+  var requestUrl = "/recommendations/products?section_id=product-recommendations--oddit&limit="+limit+"&product_id="+productId;
+  var request = new XMLHttpRequest();
+  request.open("GET", requestUrl);
+  request.onload = function() {
+    if (request.status >= 200 && request.status < 300) {
+      var container = document.createElement("div");
+      container.innerHTML = request.response;
+      productRecommendationsSection.parentElement.innerHTML = container.querySelector(".product-recommendations").innerHTML;  
+      if (window.Flickity) {
+        // console.log('FLICKITY')
+        new Flickity('.product-recommentdation-slider',{
+  "draggable": ">3",
+  "contain": true,
+  "cellSelector": ".product-recommendation",
+  "prevNextButtons": false,
+  "pageDots": false,
+  "wrapAround": true,
+  "dragThreshold": 10
+})
+      }
+    }
+  };
+  request.send();
+};
+document.addEventListener("shopify:section:load", function(event) {
+  if (event.detail.sectionId === "product-recommendations") {
+    loadProductRecommendationsIntoSection();
+  }
+});
+loadProductRecommendationsIntoSection();
+</script>
+<style>
+  #shopify-section-product-recommendations--oddit {
+    background-color: #f7f7f7;
+  }
+  .product-recommendations-container h2 {
+    width: 100%;
+    text-align: center;
+    font-size: 24px;
+    line-height: 58px;
+    letter-spacing: 0.2px;
+    padding-top: 50px;
+  }
+  .product-recommentdation-slider {
+    padding-bottom: 60px;
+  }
+  .product-recommentdation-slider .grid-product__meta {
+    justify-content: end;
+  }
+  .product-recommentdation-slider .product-card {
+    box-shadow: 0px 2px 4px 0 rgba(0,0,0,.15);
+    min-height: 480px;
+  }
+  .product-recommentdation-slider .product-card .grid-product__subtitle {
+    min-height: 30px;
+  }
+  .product-recommentdation-slider .carousel__cell {
+    width: 280px;
+    margin-right: 20px;
+  }
+  .product-recommentdation-slider .flickity-viewport {
+    overflow: visible;
+  }
+  .product-recommentdation-slider .product-card .product-card_image {
+    margin: 0 auto;
+  }
+  @media screen and (min-width: 768px) {
+    .product-recommendations-container h2 {
+      font-size: 36px;
+      line-height: 58px;
+      letter-spacing: 0.3px;
+      padding-top: 80px;
+    }
+    .product-recommentdation-slider {
+      padding-bottom: 80px;
+      padding-top: 20px;
+    }
+  }
+  @media screen and (min-width: 1024px) {
+    .product-recommentdation-slider .carousel__cell {
+      width: 320px;
+    }
+  }
+</style>
+</div>
+<div id="shopify-section-callout-review" class="shopify-section">
+  <div class="call-out-review call-out--callout-review">
+    <h2 class="call-out-review__message">"This is the freshest licorice I’ve ever had. Competely and totally addicted."</h2>
+    </div>
+
+<style>
+  #shopify-section-callout-review {
+    background: #f30c21;
+    color: #ffffff;
+    transition: 0.4s;
+  }
+
+  #shopify-section-callout-review a:hover {
+   opacity: 0.8;
+  }
+  .aos-animate .call-out-review__message{
+    animation: slide-left 1.5s cubic-bezier(.26,.54,.32,1) 0s forwards;
+  }
+  .aos-init .call-out-review__message{
+    transform: translateX(-100vw);
+  }
+ .call-out-review {
+    text-align: center;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .call-out-review h2 {
+    font-size: 24px;
+    line-height: 35px;
+    letter-spacing:0;
+    font-weight: 400;
+    max-width: 295px;
+    padding: 50px 0px 40px;
+    font-family:unicaW1GHeavy;
+  }
+  @media screen and (min-width: 768px) {
+    .call-out-review h2 {
+      font-size: 36px;
+      line-height: 50px;
+      max-width: 688px;
+      padding: 80px 0px 70px;
+    } 
+  }
+  @media screen and (min-width: 1024px) {
+    .call-out-review h2 {
+      max-width: 800px;
+    } 
+  }
+</style>
+</div>
+<div id="shopify-section-product-reviews" class="shopify-section"><div class="page-width">
+  <div class="yotpo yotpo-main-widget" data-product-id="4829850632253" data-name="Half n&#39; Half" data-url="https://licorice.com/products/half-n-half" data-image-url="//cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_large.png%3Fv=1634862514" data-description="&lt;p class=&quot;p1&quot; data-mce-fragment=&quot;1&quot;&gt;This Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.&lt;/p&gt;
+&lt;p class=&quot;p1&quot; data-mce-fragment=&quot;1&quot;&gt;&lt;span&gt;Each tube is filled with 1 pound. &lt;/span&gt;&lt;/p&gt;" data-price="" data-currency="USD"></div>
+</div>
+<style>
+  
+/* widget.css | http://staticw2.yotpo.com/7pysJMKE22Kw3SnGlc8PBZrd8rzByjodfnKxkBPi/widget.css?widget_version=2021-08-30_14-37-19 */
+
+.yotpo .yotpo-label-container {
+  display: none;
+}
+
+.bottom-line-items-container-desktop .bottom-line-items-wrapper {
+  display: none;
+}
+
+.write-question-review-buttons-container .write-question-review-button {
+  display: none;
+  border: 2px solid black;
+  border-radius: 0;
+  color: black;
+}
+
+.write-question-review-buttons-container .write-question-review-button .write-question-review-button-icon {
+  display: none;
+}
+
+.yotpo div, .yotpo span, .yotpo p, .yotpo a, .yotpo img, .yotpo i, .yotpo strong, .yotpo sup, .yotpo ul, .yotpo li, .yotpo form, .yotpo label {
+  color: black;
+}
+
+.write-question-review-buttons-container .write-question-review-button .write-question-review-button-text {
+  color: black;
+}
+
+.main-widget .yotpo-reviews-header.yotpo-active, .main-widget .yotpo-reviews-filters.yotpo-active {
+  display: none;
+}
+
+.filters-container .filters-container-title {
+  display: none;
+}
+
+.filters-container .free-text-search {
+  display: none;
+}
+
+.main-widget .yotpo-reviews-filters {
+  display: none;
+  border: 0;
+}
+
+.yotpo .yotpo-review .yotpo-header .yotpo-icon-profile, .yotpo .yotpo-comment .yotpo-header .yotpo-icon-profile, .yotpo .yotpo-question .yotpo-header .yotpo-icon-profile, .yotpo .yotpo-onsite-upload .yotpo-header .yotpo-icon-profile {
+  display: none;
+}
+
+.yotpo .yotpo-review .yotpo-main, .yotpo .yotpo-comment .yotpo-main, .yotpo .yotpo-question .yotpo-main, .yotpo .yotpo-onsite-upload .yotpo-main {
+  margin-left: 0px;
+  max-width: 500px;
+}
+
+.yotpo .yotpo-review .yotpo-footer, .yotpo .yotpo-comment .yotpo-footer, .yotpo .yotpo-question .yotpo-footer, .yotpo .yotpo-onsite-upload .yotpo-footer {
+  display: none;
+}
+
+.yotpo .yotpo-regular-box-filters-padding {
+  display: flex;
+  position: relative;
+  flex-direction: row;
+}
+
+.yotpo .yotpo-regular-box{
+  display: flex;
+  position: relative;
+  flex-direction: row;
+}
+
+.yotpo .yotpo-review .yotpo-header .yotpo-header-actions, .yotpo .yotpo-comment .yotpo-header .yotpo-header-actions, .yotpo .yotpo-question .yotpo-header .yotpo-header-actions, .yotpo .yotpo-onsite-upload .yotpo-header .yotpo-header-actions {
+  position: absolute;
+  right: 0;
+  text-align: ;
+  top: 0;
+  text-align: right;
+}
+
+.yotpo .yotpo-review .yotpo-header, .yotpo .yotpo-comment .yotpo-header, .yotpo .yotpo-question .yotpo-header, .yotpo .yotpo-onsite-upload .yotpo-header {
+  /* position: relative; */
+  position: unset;
+}
+
+.yotpo .yotpo-review .yotpo-header .yotpo-header-element, .yotpo .yotpo-comment .yotpo-header .yotpo-header-element, .yotpo .yotpo-question .yotpo-header .yotpo-header-element, .yotpo .yotpo-onsite-upload .yotpo-header .yotpo-header-element {
+  width: 250px;
+}
+
+.yotpo .yotpo-review .yotpo-header .yotpo-header-element .y-label.yotpo-review-date, .yotpo .yotpo-comment .yotpo-header .yotpo-header-element .y-label.yotpo-review-date, .yotpo .yotpo-question .yotpo-header .yotpo-header-element .y-label.yotpo-review-date, .yotpo .yotpo-onsite-upload .yotpo-header .yotpo-header-element .y-label.yotpo-review-date {
+  float: right;
+}
+
+.yotpo .yotpo-review .yotpo-main .content-title, .yotpo .yotpo-comment .yotpo-main .content-title, .yotpo .yotpo-question .yotpo-main .content-title, .yotpo .yotpo-onsite-upload .yotpo-main .content-title {
+  color: black;
+  font-weight: bold;
+}
+
+.reviews-header .reviews-amount {
+  color: black;
+}
+
+.yotpo .yotpo-nav ul .yotpo-nav-tab.yotpo-active .yotpo-nav-wrapper {
+  border: none;
+}
+
+
+
+button.yotpo-default-button {
+  display: none;
+}
+
+
+
+li.yotpo-nav-tab {
+  display: none;
+}
+
+
+
+div.yotpo-hidden-mobile {
+  display: none;
+}
+
+/* Inline #43 | http://127.0.0.1:9292/products/australian-red */
+
+@media screen and (min-width: 768px) {
+  #shopify-section-product-reviews .yotpo-display-wrapper {
+    padding: 0;
+  }
+}
+@media screen and (max-width: 767px) {
+  .yotpo .yotpo-regular-box{
+    flex-direction: column;
+  }
+/* widget.css | http://staticw2.yotpo.com/7pysJMKE22Kw3SnGlc8PBZrd8rzByjodfnKxkBPi/widget.css?widget_version=2021-08-30_14-37-19 */
+
+.bottom-line-items-container-desktop {
+  /* height: 178px; */
+}
+
+
+
+.filters-container {
+  display: none;
+}
+
+
+</style></div>
+<div id="shopify-section-callout-section" class="shopify-section">
+
+  <div class="call-out-bar call-out--callout-section">
+  
+
+    
+
+    <h2 class="call-out-bar__message">All Orders Arrive in 3 Days via 
+  <span class="fedex-logo">
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" viewBox="10 45.67 160.003 44.33">
+      <path d="M169.018 84.244c0-2.465-1.748-4.27-4.156-4.27-2.404 0-4.154 1.805-4.154 4.27 0 2.461 1.75 4.263 4.154 4.263 2.408 0 4.156-1.805 4.156-4.263zm-5.248.219v2.789h-.901v-6.15h2.239c1.312 0 1.914.573 1.914 1.69 0 .688-.465 1.233-1.064 1.312v.026c.52.083.711.547.818 1.396.082.55.191 1.504.387 1.728h-1.066c-.248-.578-.223-1.396-.414-2.081-.158-.521-.436-.711-1.033-.711h-.875v.003l-.005-.002zm1.117-.795c.875 0 1.125-.466 1.125-.877 0-.486-.25-.87-1.125-.87h-1.117v1.749h1.117v-.002zm-5.17.576c0-3.037 2.411-5.09 5.141-5.09 2.738 0 5.146 2.053 5.146 5.09 0 3.031-2.407 5.086-5.146 5.086-2.73 0-5.141-2.055-5.141-5.086z"
+            fill="#ff5a00"/>
+      <g fill="#ff5a00">
+          <path d="M141.9 88.443l-5.927-6.647-5.875 6.647h-12.362l12.082-13.574-12.082-13.578h12.748l5.987 6.596 5.761-6.596h12.302l-12.022 13.521 12.189 13.631zM93.998 88.443V45.67h23.738v9.534h-13.683v6.087h13.683v9.174h-13.683v8.42h13.683v9.558z"/>
+      </g>
+      <path d="M83.98 45.67v17.505h-.111c-2.217-2.548-4.988-3.436-8.201-3.436-6.584 0-11.544 4.479-13.285 10.396-1.986-6.521-7.107-10.518-14.699-10.518-6.167 0-11.035 2.767-13.578 7.277V61.29H21.361v-6.085h13.91v-9.533H10v42.771h11.361V70.465h11.324a17.082 17.082 0 0 0-.519 4.229c0 8.918 6.815 15.185 15.516 15.185 7.314 0 12.138-3.437 14.687-9.694h-9.737c-1.316 1.883-2.316 2.439-4.949 2.439-3.052 0-5.686-2.664-5.686-5.818h19.826C62.683 83.891 68.203 90 75.779 90c3.268 0 6.26-1.607 8.089-4.322h.11v2.771h10.017V45.672H83.98v-.002zM42.313 70.593c.633-2.718 2.74-4.494 5.37-4.494 2.896 0 4.896 1.721 5.421 4.494H42.313zm35.588 11.341c-3.691 0-5.985-3.439-5.985-7.031 0-3.84 1.996-7.529 5.985-7.529 4.139 0 5.788 3.691 5.788 7.529 0 3.638-1.746 7.031-5.788 7.031z"
+            fill="#29007c"/>
+    </svg>
+  </span>
+ air 💨</h2>
+    
+    
+    </div>
+
+<style>
+  #shopify-section-callout-section {
+    background: #000000;
+    color: #ffffff;
+    transition: 0.4s;
+  }
+
+  #shopify-section-callout-section a:hover {
+   opacity: 0.8;
+  }
+  .aos-animate .call-out-bar__message{
+    animation: slide-right 1.5s cubic-bezier(.26,.54,.32,1) 0s forwards;
+  }
+  .aos-init .call-out-bar__message{
+    transform: translateX(-100vw);
+  }
+
+ .call-out-bar {
+    padding: 18px 0px;
+    text-align: center;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .call-out-bar .fedex-logo {
+    padding: 0 10px;
+    padding-top:3px;
+  }
+  .call-out-bar h2 {
+    font-weight: 900;
+    font-style: normal;
+    font-size: 18px;
+    line-height: 23px;
+    letter-spacing:0;
+    display: flex;
+    align-items: center;
+    text-transform: uppercase;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin:7.5px 0; 
+  }
+  .call-out-bar .call-out-bar--link {
+    text-decoration: none;
+  } 
+  @media screen and (min-width: 768px) {
+    .call-out-bar h2 {
+      font-size: 24px;
+      line-height: 31px;
+      margin: 0 60px;
+      padding: 35px 0;
+    } 
+    .call-out-bar {
+        text-align: center;
+        height:100px;
+      }
+  }
+  a.call-out-bar {
+    display: block;
+  }
+  
+</style>
+</div>
+
+<script type="text/javascript">
+  var _learnq = _learnq || [];
+
+  var item = {
+    Name: "Half n' Half",
+    ProductID: 4829850632253,
+    Categories: ["All Our Flavors"],
+    ImageURL: "https://cdn.shopify.com/s/files/1/0275/6984/8381/products/0055_Licorice0068_jpg_grande.png?v=1634862514",
+    URL: "https://licorice.com/products/half-n-half",
+    Brand: "Licorice.com",
+    Price: "$15.00",
+    CompareAtPrice: "$0.00"
+  };
+
+  _learnq.push(['track', 'Viewed Product', item]);
+  _learnq.push(['trackViewedItem', {
+    Title: item.Name,
+    ItemId: item.ProductID,
+    Categories: item.Categories,
+    ImageUrl: item.ImageURL,
+    Url: item.URL,
+    Metadata: {
+      Brand: item.Brand,
+      Price: item.Price,
+      CompareAtPrice: item.CompareAtPrice
+    }
+  }]);
+</script>
+      </main>
+
+      <div id="shopify-section-footer-promotions" class="shopify-section index-section--footer">
+
+
+
+  
+
+
+
+</div>
+      <div id="shopify-section-footer" class="shopify-section"><footer class="site-footer">
+  <div class="page-width">
+
+    <div class="footer_heading-content">
+      
+        
+          <div class="footer__item--39da3d0b-2df7-4e14-ab6b-296fcc901b82 footer__item--logo_social">
+            
+<div class="footer__logo">
+    <a href="/">
+      <img src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/logo-licorice_x50@2x.png?v=1630510491" alt="Licorice.com">
+    </a>
+  </div>
+  
+    <div class="footer__secondary">
+      <img src="//cdn.shopify.com/s/files/1/0275/6984/8381/files/fresh_x50@2x.png?v=1630350621" alt="Licorice.com">
+    </div>
+  
+
+
+          </div>
+        
+      
+        
+      
+        
+      
+        
+      
+        
+      
+    </div>
+    <div class="footer_main-content">
+        
+      
+        
+
+
+          <div  class="footer__item--1494301487049 footer__item--menu" data-type="menu">
+            
+                
+  
+    <p class="h4 footer__title">
+      Licorice
+    </p>
+  
+  <div id="Footer-1494301487049">
+    <div>
+      <div>
+        <ul class="no-bullets site-footer__linklist">
+          
+            <li><a href="/collections/all">Shop All</a></li>
+          
+            <li><a href="/pages/wholesale">Wholesale</a></li>
+          
+            <li><a href="/collections">Gourmet Collection</a></li>
+          
+            <li><a href="/collections/licorice-gift-sets">Gifts</a></li>
+          
+            <li><a href="/pages/corporate-gifts-and-events-page">Brand Your Own</a></li>
+          
+            <li><a href="/search">Search</a></li>
+          
+            <li><a href="/pages/about">About</a></li>
+          
+            <li><a href="/blogs/news">Blog</a></li>
+          
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+            
+          </div>
+        
+      
+        
+
+
+          <div  class="footer__item--86a013e2-cb66-4f7d-9fad-743191d45291 footer__item--menu" data-type="menu">
+            
+                
+  
+    <p class="h4 footer__title">
+      Support
+    </p>
+  
+  <div id="Footer-86a013e2-cb66-4f7d-9fad-743191d45291">
+    <div>
+      <div>
+        <ul class="no-bullets site-footer__linklist">
+          
+            <li><a href="/pages/faq">FAQs</a></li>
+          
+            <li><a href="/policies/refund-policy">Return Policy</a></li>
+          
+            <li><a href="/pages/check-gift-card-balance">Check Balance</a></li>
+          
+            <li><a href="/pages/share">Refer a Friend</a></li>
+          
+            <li><a href="https://licorice.attn.tv/p/iV3/landing-page">SMS Collection</a></li>
+          
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+            
+          </div>
+        
+      
+        
+
+
+          <div  class="footer__item--b45186d7-693a-4f1f-ae0a-6d143bddaf52 footer__item--menu" data-type="menu">
+            
+                
+  
+    <p class="h4 footer__title">
+      Connect
+    </p>
+  
+  <div id="Footer-b45186d7-693a-4f1f-ae0a-6d143bddaf52">
+    <div>
+      <div>
+        <ul class="no-bullets site-footer__linklist">
+          
+            <li><a href="/pages/contact-us">Email Us</a></li>
+          
+            <li><a href="https://www.instagram.com/licoricedotcom/">Instagram</a></li>
+          
+            <li><a href="https://www.facebook.com/licoricedotcom/">Facebook</a></li>
+          
+            <li><a href="/">Pintrest</a></li>
+          
+        </ul>
+      </div>
+    </div>
+  </div>
+
+
+            
+          </div>
+        
+      
+        
+
+
+          <div  class="footer__item--1494292487693 footer__item--newsletter" data-type="newsletter">
+            
+                <div class="footer-newsletter_wrapper">
+    <p class="h4 footer__title">Join and Save</p>
+  <div id="Footer-1494292487693">
+    <div class="newsletter_container">
+      <div>
+        <div class="newsletter_text">
+          
+            <p>Subscribe to get special offers, free giveaways, and once-in-a-lifetime deals.</p>
+          
+        </div>
+        <form method="post" action="/contact#newsletter-footer" id="newsletter-footer" accept-charset="UTF-8" class="contact-form"><input type="hidden" name="form_type" value="customer" /><input type="hidden" name="utf8" value="✓" />
+          
+          
+
+          <label for="Email-1494292487693" class="hidden-label">Enter your email</label>
+          <input type="hidden" name="contact[tags]" value="prospect,newsletter">
+          <input type="hidden" name="contact[context]" value="footer">
+          <div class="footer__newsletter-container">
+            <div class="footer__newsletter">
+              <input type="email" value="" placeholder="Enter your email" name="contact[email]" id="Email-1494292487693" class="footer__newsletter-input" autocorrect="off" autocapitalize="off">
+            </div>
+            <button type="submit" class="btn--oddit btn--secondary" name="commit">
+              Sign Up
+            </button>
+          </div>
+        </form>
+</div>
+    </div>
+  </div>
+</div>
+
+              
+          </div>
+        
+      
+    </div>
+    <div class="footer_secondary-content">
+
+      
+        <p class="footer__small-text footer_copyright">
+          &copy; 2022 Licorice.com
+        </p>
+      
+
+      
+        <div class="footer__small-text policy-links_container">
+          <ul class="no-bullets">
+            
+              <li>
+                <a href="/policies/privacy-policy">Privacy Policy</a>
+              </li>
+            
+              <li>
+                <a href="/policies/terms-of-service">Terms of Service</a>
+              </li>
+            
+          </ul>
+        </div>
+      
+
+      
+
+
+    </div>
+  </div>
+</footer>
+
+
+</div>
+
+    </div>
+  </div>
+
+  <div id="shopify-section-newsletter-popup" class="shopify-section index-section--hidden">
+
+
+</div>
+
+  <div class="hide">
+    <button id="prevArrowTemplate" class="slick-prev" aria-label="Previous" type="button">
+      <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-chevron-left" viewBox="0 0 284.49 498.98"><path d="M249.49 0a35 35 0 0 1 24.75 59.75L84.49 249.49l189.75 189.74a35.002 35.002 0 1 1-49.5 49.5L10.25 274.24a35 35 0 0 1 0-49.5L224.74 10.25A34.89 34.89 0 0 1 249.49 0z"/></svg>
+      <span class="icon__fallback-text">Previous</span>
+    </button>
+    <button id="nextArrowTemplate" class="slick-next" aria-label="Next" type="button">
+      <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-chevron-right" viewBox="0 0 284.49 498.98"><path d="M35 498.98a35 35 0 0 1-24.75-59.75l189.74-189.74L10.25 59.75a35.002 35.002 0 0 1 49.5-49.5l214.49 214.49a35 35 0 0 1 0 49.5L59.75 488.73A34.89 34.89 0 0 1 35 498.98z"/></svg>
+      <span class="icon__fallback-text">Next</span>
+    </button>
+  </div><script id="PredictiveTemplate" type="text/template">
+  <div class="predictive-result__layout">
+    
+      {{#if products}}
+        <div data-type-products>
+          <div class="grid grid--uniform">
+            {{#products}}
+              <div class="grid__item grid-product small--one-half medium-up--one-quarter" data-aos="row-of-4">
+                <div class="grid-product__content">
+                  {{#if custom_label }}
+                    <div class="grid-product__tag grid-product__tag--custom">
+                      {{custom_label}}
+                    </div>
+                  {{/if}}
+                  {{#if on_sale }}
+                    <div class="grid-product__tag grid-product__tag--sale">
+                      Sale
+                    </div>
+                  {{/if}}
+
+                  <a href="{{url}}" class="grid-product__link">
+                    <div class="grid-product__image-mask">
+                      <div
+                        class="grid__image-ratio grid__image-ratio--object grid__image-ratio--square">
+                        <div class="predictive__image-wrap">
+                          {{#if image }}
+                            <img class="image-fit lazyload"
+                                data-src="{{image}}"
+                                data-widths="[180, 360, 540, 720]"
+                                data-sizes="auto">
+                          {{/if}}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="grid-product__meta">
+                      <div class="grid-product__title grid-product__title--heading">
+                        {{title}}
+                      </div>
+                      
+                      
+                    </div>
+                  </a>
+                </div>
+              </div>
+            {{/products}}
+          </div>
+        </div>
+      {{/if}}
+
+      {{#if pages}}
+        <div data-type-pages>
+          <p class="h6 predictive__label">Pages:</p>
+          {{#pages}}
+            <div>
+              <a href="{{url}}">
+                {{title}}
+              </a>
+            </div>
+          {{/pages}}
+        </div>
+      {{/if}}
+
+      {{#if articles}}
+        <div data-type-articles>
+          <p class="h6 predictive__label">Articles:</p>
+          <div class="grid grid--uniform">
+            {{#articles}}
+              <div class="grid__item grid-product small--one-half medium-up--one-quarter" data-aos="row-of-4">
+                <a href="{{url}}" class="grid-product__link grid-product__link--inline">
+
+                  <div class="grid-product__image-mask">
+                    <div
+                      class="grid__image-ratio grid__image-ratio--object grid__image-ratio--square">
+                      <div class="predictive__image-wrap">
+                        {{#if image }}
+                          <img class="image-fit lazyload"
+                              data-src="{{image}}"
+                              data-widths="[180, 360, 540, 720]"
+                              data-sizes="auto">
+                        {{/if}}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="grid-product__meta">
+                    {{title}}
+                  </div>
+                </a>
+              </div>
+            {{/articles}}
+          </div>
+        </div>
+      {{/if}}
+    
+  </div>
+</script>
+<div id="VideoModal" class="modal modal--solid">
+  <div class="modal__inner">
+    <div class="modal__centered page-width text-center">
+      <div class="modal__centered-content">
+        <div class="video-wrapper video-wrapper--modal">
+          <div id="VideoHolder"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" class="modal__close js-modal-close text-link">
+    <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64"><path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"/></svg>
+    <span class="icon__fallback-text">"Close (esc)"</span>
+  </button>
+</div>
+
+  <div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+  <div class="pswp__bg"></div>
+  <div class="pswp__scroll-wrap">
+    <div class="pswp__container">
+      <div class="pswp__item"></div>
+      <div class="pswp__item"></div>
+      <div class="pswp__item"></div>
+    </div>
+
+    <div class="pswp__ui pswp__ui--hidden">
+      <button class="btn btn--body btn--circle pswp__button pswp__button--arrow--left" title="Previous">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-chevron-left" viewBox="0 0 284.49 498.98"><path d="M249.49 0a35 35 0 0 1 24.75 59.75L84.49 249.49l189.75 189.74a35.002 35.002 0 1 1-49.5 49.5L10.25 274.24a35 35 0 0 1 0-49.5L224.74 10.25A34.89 34.89 0 0 1 249.49 0z"/></svg>
+      </button>
+
+      <button class="btn btn--body btn--circle btn--large pswp__button pswp__button--close" title="Close (esc)">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-close" viewBox="0 0 64 64"><path d="M19 17.61l27.12 27.13m0-27.12L19 44.74"/></svg>
+      </button>
+
+      <button class="btn btn--body btn--circle pswp__button pswp__button--arrow--right" title="Next">
+        <svg aria-hidden="true" focusable="false" role="presentation" class="icon icon-chevron-right" viewBox="0 0 284.49 498.98"><path d="M35 498.98a35 35 0 0 1-24.75-59.75l189.74-189.74L10.25 59.75a35.002 35.002 0 0 1 49.5-49.5l214.49 214.49a35 35 0 0 1 0 49.5L59.75 488.73A34.89 34.89 0 0 1 35 498.98z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+  
+    
+<script id="RecentlyViewedProduct" type="text/template">
+
+  <hr class="hr--large">
+  <div class="index-section index-section--small">
+    <div class="page-width">
+      <header class="section-header">
+        <h3 class="section-header__title">Recently viewed</h3>
+      </header>
+    </div>
+    <div class="page-width page-width--flush-small">
+      <div class="grid-overflow-wrapper">
+        <div class="grid grid--uniform" data-aos="overflow__animation">
+          {{#items}}
+            <div class="grid__item grid-product {{ ../grid_item_width }} aos-animate" data-aos="row-of-5">
+              <div class="grid-product__content">
+                {{#if sold_out}}
+                  <div class="grid-product__tag">
+                    Coming Back Soon
+                  </div>
+                {{/if}}
+                {{#if on_sale}}
+                  {{#unless sold_out}}
+                    <div class="grid-product__tag grid-product__tag--sale">
+                      
+                      Save 
+                        {{{ money_saved }}}
+                      
+                    </div>
+                  {{/unless}}
+                {{/if}}
+                <a href="{{ url_formatted }}" class="grid-product__link{{#if sold_out}} grid-product__link--disabled{{/if}}">
+                  <div class="grid-product__image-mask">
+                    <div class="image-wrap" style="height: 0; padding-bottom: {{ image_aspect_ratio }}%;">
+                      <img class="grid-product__image lazyload"
+                          data-src="{{ image_responsive_url }}"
+                          data-widths="[180, 360, 540, 720, 900]"
+                          data-aspectratio="{{ image_aspect_ratio }}"
+                          data-sizes="auto"
+                          alt="{{ title }}">
+                    </div>
+                  </div>
+
+                  <div class="grid-product__meta">
+                    <div class="grid-product__title grid-product__title--heading">{{ title }}</div>
+                    
+                    <div class="grid-product__price">
+                      {{#if on_sale}}
+                        <span class="visually-hidden">Regular price</span>
+                        <span class="grid-product__price--original">{{{ compare_at_price_formatted }}}</span>
+                        <span class="visually-hidden">Sale price</span>
+                      {{/if}}
+                      {{#if price_varies}}
+                        
+                        from 
+                          {{{ price_min_formatted }}}
+                        
+                      {{ else }}
+                        {{{ price_formatted }}}
+                      {{/if}}
+                    </div>
+                  </div>
+                </a>
+              </div>
+            </div>
+          {{/items}}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</script>
+
+  
+  
+  <!-- Rebuy -->
+  <script src="https://rebuyengine.com/js/rebuy?shop=licorice-shop.myshopify.com" async></script>
+
+
+  <!-- CRITEO START -->
+  <script type="text/javascript">
+  (function(){
+    var deviceType = /iPad/.test(navigator.userAgent) ? "t" : /Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Silk/.test(navigator.userAgent) ? "m" : "d";
+    window.criteo_q = window.criteo_q || [];
+    window.criteo_q.push(
+      { event: "setAccount", account: 78398 },
+      { event: "setEmail", email: "" },
+      { event: "setSiteType", type: deviceType },
+      { event: "setZipcode", zipcode: "" },
+        
+        
+        
+        
+          { event: "viewItem", ecpplugin: "shopify-mc", item:  "4829850632253"  }
+          
+        
+        
+    );
+    window.addEventListener('load', function() {
+      // ajax request catching
+      (function(open) {
+        XMLHttpRequest.prototype.open = function(method, url, async, user, pass) {
+          this.addEventListener("readystatechange", function() {
+            if (this.readyState == 4 && this._url.includes("/add.js")) {
+              $.getJSON("/cart.js", function(data) {
+                var basketData = [];
+                var item;
+                if (!data.items || !data.items.length) return;
+                for (var i = 0; i < data.items.length; i++) {
+                  item = data.items[i];
+                  if (item.product_id == "4829850632253") {
+                    basketData.push({
+                      id: item.product_id,
+                      price: (typeof(item.price) != "number") ? item.price : (item.price/100),
+                      quantity: item.quantity
+                    });
+                  }
+                }
+                window.criteo_q.push({ event: "addToCart", ecpplugin: "shopify-mc", product: basketData });
+              });
+            }
+          }, false);
+          open.call(this, method, url, async, user, pass);
+        };
+      })(XMLHttpRequest.prototype.open);
+
+      // fetch request catching
+      const crtoMock = window.fetch;
+      window.fetch = function() {
+        return new Promise((resolve, reject) => {
+          crtoMock.apply(this, arguments)
+            .then((response) => {
+              if(response.url.includes("/add.js") && response.type != "cors"){
+                $.getJSON("/cart.js", function(data) {
+                  var basketData = [];
+                  var item;
+                  if (!data.items || !data.items.length) return;
+                  for (var i = 0; i < data.items.length; i++) {
+                    item = data.items[i];
+                    if (item.product_id == "4829850632253") {
+                      basketData.push({
+                        id: item.product_id,
+                        price: (typeof(item.price) != "number") ? item.price : (item.price/100),
+                        quantity: item.quantity
+                      });
+                    }
+                  }
+                  window.criteo_q.push({ event: "addToCart", ecpplugin: "shopify-mc", product: basketData });
+                });
+              }
+              resolve(response);
+            })
+            .catch((error) => {
+              reject(response);
+            })
+        });
+      }
+    }, false);
+  })();
+</script>
+  <!-- CRITEO END -->
+  
+  <!-- Begin Shopify-Afterpay JavaScript Snippet (v1.0.9) -->
+<script type="text/javascript">
+// Overrides:
+// var afterpay_min = 0.04;            // As per your Afterpay contract.
+// var afterpay_max = 2000.00;         // As per your Afterpay contract.
+// var afterpay_cbt_enabled = false;   // As per your Afterpay contract; change to true to display Cross-Border Trade artwork (for AU/NZ).
+// var afterpay_logo_theme = 'colour'; // Can be 'colour', 'black' or 'white'.
+var afterpay_product_selector = '#afterpay-container';
+// var afterpay_cart_integration_enabled = true;
+// var afterpay_cart_static_selector = '#cart-subtotal-selector';
+var afterpay_modal_open_icon = true;
+
+// Non-editable fields:
+var afterpay_shop_currency = "USD";
+var afterpay_cart_currency = "USD";
+var afterpay_shop_money_format = "${{amount}}";
+var afterpay_shop_permanent_domain = "licorice-shop.myshopify.com";
+var afterpay_theme_name = "Licorice - 04.05 - Press Bar | Hero 3";
+var afterpay_product = {"id":4829850632253,"title":"Half n' Half","handle":"half-n-half","description":"\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003eThis Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.\u003c\/p\u003e\n\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003e\u003cspan\u003eEach tube is filled with 1 pound. \u003c\/span\u003e\u003c\/p\u003e","published_at":"2020-11-09T00:50:10-05:00","created_at":"2020-11-08T15:40:53-05:00","vendor":"Licorice.com","type":"Self-Consumption","tags":["candy"],"price":1500,"price_min":1500,"price_max":1500,"available":false,"price_varies":false,"compare_at_price":null,"compare_at_price_min":0,"compare_at_price_max":0,"compare_at_price_varies":false,"variants":[{"id":32942333853757,"title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"L_H_N_H","requires_shipping":true,"taxable":true,"featured_image":null,"available":false,"name":"Half n' Half","public_title":null,"options":["Default Title"],"price":1500,"weight":499,"compare_at_price":null,"inventory_management":"shopify","barcode":"L_H_N_H","requires_selling_plan":false,"selling_plan_allocations":[{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447414333,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447447101,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447479869,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"}]}],"images":["\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514","\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Licorice0068.jpg?v=1607108492","\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Products_with_single_tube_51.jpg?v=1607108505"],"featured_image":"\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514","options":["Title"],"media":[{"alt":null,"id":20676368236605,"position":1,"preview_image":{"aspect_ratio":1.425,"height":563,"width":802,"src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514"},"aspect_ratio":1.425,"height":563,"media_type":"image","src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/0055_Licorice0068_jpg.png?v=1634862514","width":802},{"alt":"Half n' Half - Licorice.com","id":8747752849469,"position":2,"preview_image":{"aspect_ratio":1.5,"height":1000,"width":1500,"src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Licorice0068.jpg?v=1607108492"},"aspect_ratio":1.5,"height":1000,"media_type":"image","src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Licorice0068.jpg?v=1607108492","width":1500},{"alt":"Half n' Half - Licorice.com","id":8747752882237,"position":3,"preview_image":{"aspect_ratio":1.122,"height":1483,"width":1664,"src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Products_with_single_tube_51.jpg?v=1607108505"},"aspect_ratio":1.122,"height":1483,"media_type":"image","src":"https:\/\/cdn.shopify.com\/s\/files\/1\/0275\/6984\/8381\/products\/Products_with_single_tube_51.jpg?v=1607108505","width":1664}],"requires_selling_plan":false,"selling_plan_groups":[{"id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38","name":"Subscription","options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"values":["Every 1 month","Every 2 months","Every 3 months"]}],"selling_plans":[{"id":447414333,"name":"Every 1 month","description":null,"options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"value":"Every 1 month"}],"recurring_deliveries":true,"price_adjustments":[{"order_count":null,"position":1,"value_type":"price","value":1350}]},{"id":447447101,"name":"Every 2 months","description":null,"options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"value":"Every 2 months"}],"recurring_deliveries":true,"price_adjustments":[{"order_count":null,"position":1,"value_type":"price","value":1350}]},{"id":447479869,"name":"Every 3 months","description":null,"options":[{"name":"Every-gid:\/\/shopify\/ProductVariant\/32942333853757","position":1,"value":"Every 3 months"}],"recurring_deliveries":true,"price_adjustments":[{"order_count":null,"position":1,"value_type":"price","value":1350}]}],"app_id":null}],"content":"\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003eThis Swedish delicacy gives you the “best of both worlds” with its half black, half sour strawberry flavor. The firm disks are perfectly coated with a sprinkle of sugar for a sweet and sour feel.\u003c\/p\u003e\n\u003cp class=\"p1\" data-mce-fragment=\"1\"\u003e\u003cspan\u003eEach tube is filled with 1 pound. \u003c\/span\u003e\u003c\/p\u003e"};
+var afterpay_current_variant = {"id":32942333853757,"title":"Default Title","option1":"Default Title","option2":null,"option3":null,"sku":"L_H_N_H","requires_shipping":true,"taxable":true,"featured_image":null,"available":false,"name":"Half n' Half","public_title":null,"options":["Default Title"],"price":1500,"weight":499,"compare_at_price":null,"inventory_management":"shopify","barcode":"L_H_N_H","requires_selling_plan":false,"selling_plan_allocations":[{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447414333,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447447101,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"},{"price_adjustments":[{"position":1,"price":1350}],"price":1350,"compare_at_price":1500,"per_delivery_price":1350,"selling_plan_id":447479869,"selling_plan_group_id":"a390b7263bf8a75eb86c8f8931ce45dde5f04a38"}]};
+var afterpay_cart_total_price = 0;
+var afterpay_js_snippet_version = '1.0.9';
+</script>
+<script type="text/javascript" src="https://static.afterpay.com/shopify-afterpay-javascript.js"></script>
+<!-- End Shopify-Afterpay JavaScript Snippet (v1.0.9) -->
+
+<style type="text/css">
+  .afterpay-paragraph {
+  	font-size: 0.9em;
+	margin-bottom: 18px !important;
+  }
+  #shopify-section-cart-template .afterpay-paragraph {
+  }
+  .afterpay-link-inner, .afterpay-link { 
+    text-decoration: none; 
+  }
+</style>
+<!-- End of Afterpay assets -->
+  
+  <script>
+  var toynk = {
+    updateGiftWithPurchaseQuantities: function(products, widget){
+      var widgets = {
+        6895: [3232997834874]
+      };
+      if (widgets.hasOwnProperty(widget.id)) {
+        var count = 0;
+        var product_ids = widgets[widget.id];
+        var items = widget.data.cart.items;
+        // Count number of prerequisite items
+        for (var i = 0; i < items.length; i++) {
+          if (product_ids.indexOf(items[i].product_id) > -1) {
+            count += items[i].quantity;
+          }
+        }
+        // Ensure count is less than our max of 12 units
+        count = Math.min(count, 1);
+        // Update widget product metadata quantities
+        if (count > 0) {
+          for (var i = 0; i < products.length; i++) {
+            if (!products[i].metadata) {
+              products[i].metadata = {};
+            }
+            products[i].metadata.product_quantity = count;
+          }
+        }
+      }
+    }
+  };
+  document.addEventListener('rebuy.beforeProductsChange', function(event){
+    toynk.updateGiftWithPurchaseQuantities(event.detail.products, event.detail.widget);
+  });
+</script>
+<!--Gorgias Chat Widget Start--><script id="gorgias-chat-widget-install-v2" src="https://config.gorgias.chat/gorgias-chat-bundle-loader.js?applicationId=10352"></script>
+<script id="gorgias-chat-shopify-install">!function(_){_.SHOPIFY_PERMANENT_DOMAIN="licorice-shop.myshopify.com",_.SHOPIFY_CUSTOMER_ID="",_.SHOPIFY_CUSTOMER_EMAIL=""}(window||{});</script><!--Gorgias Chat Widget End-->
+</body>
+</html>
+
+<script src="https://www.dwin1.com/19038.js"
+type="text/javascript" defer="defer"></script>
+
+<script>
+  (function(w, d){
+   var id='pdst-capture', n = 'script';
+   if (!d.getElementById(id)){
+     w.pdst = w.pdst || function() {(w.pdst.q = w.pdst.q || []).push(arguments);};
+     var e = d.createElement(n); e.id = id; e.async=1;
+     e.src = 'https://cdn.pdst.fm/ping.min.js';
+     var s = d.getElementsByTagName(n)[0];
+     s.parentNode.insertBefore(e, s);
+   }
+   w.pdst('conf', { key: '2b62bbbe527c4ad0bff93e7c97773480' });
+   w.pdst('view');
+  })(window, document);
+</script>
