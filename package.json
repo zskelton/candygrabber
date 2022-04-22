@@ -2,8 +2,9 @@
   "name": "candygrabber",
   "version": "1.0.0",
   "description": "Sends e-mails when candy is in stock.",
-  "main": "index.js",
+  "main": "app/index.cjs",
   "scripts": {
+    "start": "node app/index.cjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
