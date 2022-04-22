@@ -1,0 +1,25 @@
+{
+  "name": "candygrabber",
+  "version": "1.0.0",
+  "description": "Sends e-mails when candy is in stock.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zskelton/candygrabber.git"
+  },
+  "keywords": [
+    "data",
+    "data",
+    "mining",
+    "candy"
+  ],
+  "author": "Zachary D. Skelton (zskelton@skeltonnetworks.com)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/zskelton/candygrabber/issues"
+  },
+  "homepage": "https://github.com/zskelton/candygrabber#readme"
+}
