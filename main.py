@@ -8,11 +8,11 @@ import re
 def send_mail(content):
   # Variables
   port = 465
-  server = "mail.skeltonnetworks.com"
-  user = "candygram@skeltonnetworks.com"
-  pasw = "CandyGram01"
-  to = ["bing_6@hotmail.com", "zbert@hotmail.com"]
-  subject = "Candygram!"
+  server = "mailserver"
+  user = "sender@sencer.com"
+  pasw = "emailpasswd"
+  to = "email@email.com"
+  subject = "subjectline"
   if content:
     body = "Subject: Good News!\n\nThe licorice half and halfs are now avaiable!"
   else:
