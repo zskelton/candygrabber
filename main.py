@@ -25,19 +25,19 @@ def send_mail(content):
       server.sendmail(user, to, body)
       server.quit()
   except Exception as e:
-    print("Error: Could not send mail" + e)
+    print("Error: Could not send mail.")
     exit(1)
 
 def check_new(content):
   # Variables
-  reg = r"<span id=\"AddToCartText-[0-9]*\">(.*?)</span>"
+  reg = re.findall(r"<button.*name=\"add\".*<span>.*(Sold out).*<\/span>.*<\/button>", content, re.M | re.I | re.S)
+  print(reg)
   # Do It!
   try:
-    ret = re.search(reg, content, re.M | re.S)
-    if re.findall("Add to bag", ret.group(1), re.M | re.S):
-      return True
-    else:
+    if reg and reg[0] == "Sold out":
       return False
+    else:
+      return True
   except:
     print("Error: Could not parse webpage")
     exit(1)
@@ -45,6 +45,7 @@ def check_new(content):
 def get_webpage():
   # Variables
   url = "https://licorice.com/products/half-n-half"
+  # url = "https://licorice.com/products/australian-black"
   # Do It!
   try:
     content = urllib.request.urlopen(url).read().decode('utf-8')
@@ -57,7 +58,11 @@ def get_webpage():
 def main():
   content = get_webpage()
   result = check_new(content)
-  send_mail(result)
+  if (result):
+    print ("true")
+  else:
+    print ("false")
+  # send_mail(result)
   exit(0)
 
 # RUN
