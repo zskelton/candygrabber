@@ -45,7 +45,6 @@ def check_new(content):
 def get_webpage():
   # Variables
   url = "https://licorice.com/products/half-n-half"
-  # url = "https://licorice.com/products/australian-black"
   # Do It!
   try:
     content = urllib.request.urlopen(url).read().decode('utf-8')
